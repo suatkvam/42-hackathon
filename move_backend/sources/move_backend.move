@@ -1,74 +1,89 @@
 module move_backend::linktree {
-    // Move 2024 sürümünde 'object', 'transfer', 'tx_context' ve 'UID'
-    // gibi temel Sui modülleri otomatik olarak içeri aktarılır (import edilir).
     use std::string::String;
+    use sui::vec_map::{Self, VecMap};
     
-    // HATA ÇÖZÜMÜ: 'vec_map' modülünü fonksiyonlarıyla (Self) birlikte import et
-    use sui::vec_map::{Self, VecMap}; 
+    // YENİ V2 İmportları:
+    use sui::dynamic_field as df; // Dinamik Alanlar için kısayol
+    use sui::transfer::share_object; // Paylaşılan obje oluşturmak için
+    // Not: 'use sui::object::{ID}' kaldırıldı, 'ID' zaten import ediliyor.
 
     // --- Structs (Veri Yapıları) ---
 
-    /// Bir kullanıcının on-chain LinkTree profilini temsil eder.
-    /// Move 2024, struct'ın 'public' olmasını zorunlu kılar.
+    /// (DEĞİŞİKLİK YOK)
     public struct LinkTreeProfile has key, store {
         id: UID,
-        /// Profilin sahibi. Sadece bu adres profili güncelleyebilir.
         owner: address,
-        /// Profil adı / Başlık
         name: String,
-        /// Kısa Biyografi
         bio: String,
-        /// Profil resmi için IPFS CID'si veya URL
         avatar_cid: String,
-        /// Linkler: "Etiket" -> "URL" eşleşmesi
         links: VecMap<String, String>,
-        /// Tema adı (örn: "dark", "light", "retro")
         theme: String
     }
 
+    // YENİ V2: Telefon Rehberimiz (Registry)
+    public struct ProfileRegistry has key, store {
+        id: UID
+    }
+
     // --- Hata Kodları ---
-    /// Fonksiyonu çağıran kişi objenin sahibi değilse verilecek hata
-    const ENotOwner: u64 = 0; 
+    
+    /// (DEĞİŞİKLİK YOK)
+    const ENotOwner: u64 = 0;
+    
+    // Not: EUsernameTaken kaldırıldı, df::add'in kendi hatasını (EFieldAlreadyExists) kullanacağız.
 
     // --- Fonksiyonlar ---
-    // 'public' fonksiyonlar zaten 'entry' kabul edilir.
 
-    /// Yeni bir LinkTreeProfile objesi oluşturur ve işlemi başlatan kişiye transfer eder.
+    /// YENİ V2: Telefon Rehberini (Registry) oluşturan fonksiyon.
+    public fun create_registry(ctx: &mut TxContext) {
+        let registry = ProfileRegistry {
+            id: object::new(ctx)
+        };
+        share_object(registry);
+    }
+
+    /// GÜNCELLENDİ (V2): 
     public fun create_profile(
+        registry: &mut ProfileRegistry, // YENİ V2: Telefon Rehberi objesi
+        username: String,              // YENİ V2: İstenen kullanıcı adı
         name: String,
         bio: String,
         avatar_cid: String,
         theme: String,
         ctx: &mut TxContext
     ) {
-        // Yeni bir profil objesi oluştur
+        // HATA ÇÖZÜMÜ: Gereksiz 'exists' kontrolü kaldırıldı.
+        // df::add fonksiyonu, 'username' zaten varsa işlemi OTOMATİK olarak iptal edecektir.
+
+        // (DEĞİŞİKLİK YOK) Profil objesini oluştur
         let profile = LinkTreeProfile {
             id: object::new(ctx),
-            owner: tx_context::sender(ctx), // Sahibi = işlemi başlatan kişi
+            owner: tx_context::sender(ctx),
             name: name,
             bio: bio,
             avatar_cid: avatar_cid,
-            links: vec_map::empty<String, String>(), // Bu satır artık çalışacak
+            links: vec_map::empty<String, String>(),
             theme: theme
         };
 
-        // Objeyi sahibine (onu oluşturan kişiye) transfer et
+        // YENİ V2: Telefon Rehberine Ekle
+        let profile_id = object::uid_to_inner(&profile.id);
+        
+        // Bu fonksiyon 'username' zaten varsa EFieldAlreadyExists hatası vererek işlemi durdurur.
+        df::add(&mut registry.id, username, profile_id);
+
+        // (DEĞİŞİKLİK YOK) Objeyi sahibine (onu oluşturan kişiye) transfer et
         transfer::transfer(profile, tx_context::sender(ctx));
     }
 
-    /// Mevcut bir profile yeni bir link ekler.
-    /// Sadece objenin sahibi çağırabilir.
+    /// (DEĞİŞİKLİK YOK)
     public fun add_link(
         profile: &mut LinkTreeProfile,
         label: String,
         url: String,
         ctx: &mut TxContext
     ) {
-        // KONTROL: Bu fonksiyonu çağıran kişi objenin sahibi mi?
         assert!(profile.owner == tx_context::sender(ctx), ENotOwner);
-
-        // Linki ekle (veya varsa üstüne yaz)
-        // Bu satır da artık çalışacak (ve uyarılar kaybolacak)
         vec_map::insert(&mut profile.links, label, url);
     }
 }
