@@ -1,18 +1,28 @@
 import { ConnectButton, useCurrentAccount } from "@mysten/dapp-kit";
 import { useNavigate } from "react-router-dom";
-import { getTheme } from "./themes";
-
-const theme = getTheme("default");
+import { useState, useEffect } from "react";
+import { getTheme, getThemeNames, type Theme } from "./themes";
 
 export default function LandingPage() {
   const account = useCurrentAccount();
   const navigate = useNavigate();
+  const [currentTheme, setCurrentTheme] = useState<Theme>(() => {
+    const savedTheme = localStorage.getItem("suitree_theme");
+    return getTheme(savedTheme || "default");
+  });
+  const [showThemeMenu, setShowThemeMenu] = useState(false);
+
+  const handleThemeChange = (themeName: string, theme: Theme) => {
+    setCurrentTheme(theme);
+    localStorage.setItem("suitree_theme", themeName);
+    setShowThemeMenu(false);
+  };
 
   return (
     <div
       style={{
         minHeight: "100vh",
-        background: "linear-gradient(180deg, #c96d37, #1f1f1f)",
+        background: currentTheme.gradient,
         fontFamily: "Poppins, sans-serif",
         display: "flex",
         flexDirection: "column",
@@ -37,14 +47,84 @@ export default function LandingPage() {
         }}>
           🌳 SuiTree
         </h1>
-        <div style={{ display: "flex", gap: "15px", alignItems: "center" }}>
+        <div style={{ display: "flex", gap: "15px", alignItems: "center", flexWrap: "wrap" }}>
+          {/* Theme Selector */}
+          <div style={{ position: "relative" }}>
+            <button
+              onClick={() => setShowThemeMenu(!showThemeMenu)}
+              style={{
+                padding: "10px 20px",
+                backgroundColor: "rgba(255,255,255,0.2)",
+                color: "white",
+                border: "2px solid rgba(255,255,255,0.3)",
+                borderRadius: "8px",
+                cursor: "pointer",
+                fontWeight: "bold",
+                transition: "all 0.3s",
+                backdropFilter: "blur(10px)",
+              }}
+            >
+              🎨 Themes
+            </button>
+            {showThemeMenu && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: "50px",
+                  right: 0,
+                  backgroundColor: "white",
+                  borderRadius: "12px",
+                  padding: "10px",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+                  zIndex: 1000,
+                  minWidth: "200px",
+                }}
+              >
+                {getThemeNames().map((themeName) => {
+                  const theme = getTheme(themeName);
+                  return (
+                    <button
+                      key={themeName}
+                      onClick={() => handleThemeChange(themeName, theme)}
+                      style={{
+                        width: "100%",
+                        padding: "12px",
+                        marginBottom: "5px",
+                        backgroundColor: currentTheme.name === theme.name ? theme.colors.primary : "transparent",
+                        color: currentTheme.name === theme.name ? "white" : "#333",
+                        border: "none",
+                        borderRadius: "8px",
+                        cursor: "pointer",
+                        fontWeight: "600",
+                        fontSize: "14px",
+                        textAlign: "left",
+                        transition: "all 0.2s",
+                      }}
+                      onMouseEnter={(e) => {
+                        if (currentTheme.name !== theme.name) {
+                          e.currentTarget.style.backgroundColor = "#f0f0f0";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (currentTheme.name !== theme.name) {
+                          e.currentTarget.style.backgroundColor = "transparent";
+                        }
+                      }}
+                    >
+                      {theme.name}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
           {account && (
             <button
               onClick={() => navigate("/dashboard")}
               style={{
                 padding: "10px 25px",
                 backgroundColor: "white",
-                color: "#c96d37",
+                color: currentTheme.colors.primary,
                 border: "none",
                 borderRadius: "8px",
                 cursor: "pointer",
@@ -52,12 +132,12 @@ export default function LandingPage() {
                 transition: "all 0.3s",
               }}
               onMouseOver={(e) => {
-                e.currentTarget.style.backgroundColor = "#ff8b3d";
+                e.currentTarget.style.backgroundColor = currentTheme.colors.primary;
                 e.currentTarget.style.color = "white";
               }}
               onMouseOut={(e) => {
                 e.currentTarget.style.backgroundColor = "white";
-                e.currentTarget.style.color = "#c96d37";
+                e.currentTarget.style.color = currentTheme.colors.primary;
               }}
             >
               🌳 Dashboard

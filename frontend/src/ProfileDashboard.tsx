@@ -24,8 +24,17 @@ export default function ProfileDashboard() {
   const [addingLink, setAddingLink] = useState(false);
   const [showThemeModal, setShowThemeModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
-  const [currentTheme, setCurrentTheme] = useState<Theme>(getTheme("default"));
+  const [currentTheme, setCurrentTheme] = useState<Theme>(() => {
+    // Kaydedilmiş temayı yükle
+    const savedTheme = localStorage.getItem("suitree_theme");
+    return getTheme(savedTheme || "default");
+  });
   const [savingTheme, setSavingTheme] = useState(false);
+  const [showChangeUsername, setShowChangeUsername] = useState(false);
+  const [newUsername, setNewUsername] = useState("");
+  const [changingUsername, setChangingUsername] = useState(false);
+  const [showDeleteAccount, setShowDeleteAccount] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   // Redirect if not connected
   useEffect(() => {
@@ -64,8 +73,11 @@ export default function ProfileDashboard() {
             avatar: fields.blob_id || fields.avatar_cid,
             links: fields.links || [],
             theme: themeName,
+            username_change_count: fields.username_change_count || 0,
           });
+          // Kullanıcının temasını uygula ve kaydet
           setCurrentTheme(getTheme(themeName));
+          localStorage.setItem("suitree_theme", themeName);
         } else {
           setShowCreateProfile(true);
         }
@@ -143,8 +155,11 @@ export default function ProfileDashboard() {
       { transaction: tx },
       {
         onSuccess: () => {
-          setCurrentTheme(getTheme(themeName));
+          const newTheme = getTheme(themeName);
+          setCurrentTheme(newTheme);
           setUserProfile({ ...userProfile, theme: themeName });
+          // Temayı localStorage'a kaydet
+          localStorage.setItem("suitree_theme", themeName);
           setShowThemeModal(false);
           setSavingTheme(false);
         },
@@ -152,6 +167,114 @@ export default function ProfileDashboard() {
           console.error("Failed to update theme:", error);
           alert("Failed to update theme: " + error.message);
           setSavingTheme(false);
+        },
+      }
+    );
+  };
+
+  const handleChangeUsername = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profileObjectId || !newUsername) return;
+
+    // Reserved usernames kontrolü
+    const reservedUsernames = [
+      "dashboard", "admin", "root", "system", "api", "www", "app",
+      "support", "help", "settings", "profile", "login", "register",
+      "signup", "signin", "logout", "home", "about", "contact",
+      "terms", "privacy", "legal"
+    ];
+
+    if (reservedUsernames.includes(newUsername.toLowerCase())) {
+      alert("Bu kullanıcı adı rezerve edilmiştir. Lütfen başka bir kullanıcı adı seçin.");
+      return;
+    }
+
+    setChangingUsername(true);
+    const tx = new Transaction();
+    tx.setGasBudget(10000000);
+    
+    // İlk değişiklikten sonra ödeme gerekli
+    const changeCount = userProfile?.username_change_count || 0;
+    
+    if (changeCount > 0) {
+      const confirmPayment = window.confirm(
+        `Kullanıcı adını değiştirmek için 1 SUI ödemeniz gerekiyor. (${changeCount}. değişiklik)\n\nDevam etmek istiyor musunuz?`
+      );
+      
+      if (!confirmPayment) {
+        setChangingUsername(false);
+        return;
+      }
+    } else {
+      alert("İlk kullanıcı adı değişikliği bedava! Sonraki değişiklikler 1 SUI olacak.");
+    }
+
+    tx.moveCall({
+      target: `${PACKAGE_ID}::${MODULE_NAME}::change_username`,
+      arguments: [
+        tx.object(REGISTRY_ID),
+        tx.object(profileObjectId),
+        tx.pure.string(newUsername),
+      ],
+    });
+
+    signAndExecute(
+      { transaction: tx },
+      {
+        onSuccess: () => {
+          alert("Kullanıcı adı başarıyla değiştirildi!");
+          setShowChangeUsername(false);
+          setNewUsername("");
+          setTimeout(() => window.location.reload(), 500);
+        },
+        onError: (error) => {
+          console.error("Failed to change username:", error);
+          if (error.message.includes("EUsernameAlreadyTaken")) {
+            alert("Bu kullanıcı adı zaten alınmış. Lütfen başka bir kullanıcı adı seçin.");
+          } else if (error.message.includes("EReservedUsername")) {
+            alert("Bu kullanıcı adı rezerve edilmiştir. Lütfen başka bir kullanıcı adı seçin.");
+          } else {
+            alert("Kullanıcı adı değiştirilirken bir hata oluştu: " + error.message);
+          }
+          setChangingUsername(false);
+        },
+      }
+    );
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!profileObjectId) return;
+
+    const confirmDelete = window.prompt(
+      'Hesabınızı silmek istediğinizden emin misiniz?\n\nBu işlem geri alınamaz. Onaylamak için "SIL" yazın:'
+    );
+
+    if (confirmDelete !== "SIL") {
+      return;
+    }
+
+    setDeletingAccount(true);
+    const tx = new Transaction();
+    tx.setGasBudget(10000000);
+    tx.moveCall({
+      target: `${PACKAGE_ID}::${MODULE_NAME}::delete_profile`,
+      arguments: [
+        tx.object(REGISTRY_ID),
+        tx.object(profileObjectId),
+      ],
+    });
+
+    signAndExecute(
+      { transaction: tx },
+      {
+        onSuccess: () => {
+          alert("Hesabınız başarıyla silindi.");
+          navigate("/");
+        },
+        onError: (error) => {
+          console.error("Failed to delete account:", error);
+          alert("Hesap silinirken bir hata oluştu: " + error.message);
+          setDeletingAccount(false);
         },
       }
     );
@@ -207,8 +330,9 @@ export default function ProfileDashboard() {
 
         <NavItem icon="🏠" label="My Linktree" active theme={currentTheme} />
         <NavItem icon="🎨" label="Appearance" onClick={() => setShowThemeModal(true)} theme={currentTheme} />
+        <NavItem icon="👤" label="Change Username" onClick={() => setShowChangeUsername(true)} theme={currentTheme} />
         <NavItem icon="📊" label="Analytics" onClick={() => alert("Coming soon!")} theme={currentTheme} />
-        <NavItem icon="⚙️" label="Settings" onClick={() => alert("Coming soon!")} theme={currentTheme} />
+        <NavItem icon="🗑️" label="Delete Account" onClick={() => setShowDeleteAccount(true)} theme={currentTheme} />
         
         <div style={{ marginTop: "auto", paddingTop: "20px", borderTop: `1px solid ${currentTheme.colors.border}` }}>
           <NavItem 
@@ -231,10 +355,20 @@ export default function ProfileDashboard() {
             marginBottom: "30px"
           }}>
             <div>
-              <h1 style={{ fontSize: "28px", fontWeight: "bold", color: currentTheme.colors.card, margin: 0, textShadow: "2px 2px 4px rgba(0,0,0,0.3)" }}>
+              <h1 style={{ 
+                fontSize: "28px", 
+                fontWeight: "bold", 
+                color: currentTheme.colors.text === "#1a202c" ? currentTheme.colors.text : currentTheme.colors.card, 
+                margin: 0, 
+                textShadow: currentTheme.colors.text === "#1a202c" ? "none" : "2px 2px 4px rgba(0,0,0,0.3)"
+              }}>
                 Links
               </h1>
-              <p style={{ color: "rgba(255,255,255,0.9)", fontSize: "14px", marginTop: "5px" }}>
+              <p style={{ 
+                color: currentTheme.colors.text === "#1a202c" ? currentTheme.colors.textSecondary : "rgba(255,255,255,0.9)", 
+                fontSize: "14px", 
+                marginTop: "5px" 
+              }}>
                 {userProfile?.username ? `linktree.sui/${userProfile.username}` : "Create your profile"}
               </p>
             </div>
@@ -596,6 +730,179 @@ export default function ProfileDashboard() {
                 }}
               >
                 Kapat
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Change Username Modal */}
+      {showChangeUsername && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.7)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 2000,
+            padding: "20px",
+          }}
+          onClick={() => !changingUsername && setShowChangeUsername(false)}
+        >
+          <div
+            style={{
+              backgroundColor: currentTheme.colors.card,
+              borderRadius: "15px",
+              padding: "30px",
+              width: "100%",
+              maxWidth: "500px",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 style={{ fontSize: "24px", fontWeight: "bold", color: currentTheme.colors.text, marginTop: 0 }}>
+              👤 Kullanıcı Adını Değiştir
+            </h2>
+            <p style={{ color: currentTheme.colors.textSecondary, marginBottom: "20px", fontSize: "14px" }}>
+              Mevcut: <strong>@{userProfile?.username}</strong>
+            </p>
+            <p style={{ color: currentTheme.colors.warning, marginBottom: "20px", fontSize: "13px", backgroundColor: "#fff3cd", padding: "10px", borderRadius: "8px" }}>
+              ⚠️ İlk değişiklik bedava, sonraki her değişiklik <strong>1 SUI</strong> tutar.
+            </p>
+
+            <form onSubmit={handleChangeUsername}>
+              <input
+                type="text"
+                value={newUsername}
+                onChange={(e) => setNewUsername(e.target.value.toLowerCase().trim())}
+                placeholder="Yeni kullanıcı adı"
+                required
+                disabled={changingUsername}
+                style={{
+                  width: "100%",
+                  padding: "12px",
+                  borderRadius: "8px",
+                  border: `1px solid ${currentTheme.colors.border}`,
+                  fontSize: "14px",
+                  boxSizing: "border-box",
+                  marginBottom: "20px",
+                }}
+              />
+
+              <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
+                <button
+                  type="button"
+                  onClick={() => setShowChangeUsername(false)}
+                  disabled={changingUsername}
+                  style={{
+                    padding: "10px 20px",
+                    borderRadius: "8px",
+                    border: `1px solid ${currentTheme.colors.border}`,
+                    backgroundColor: currentTheme.colors.card,
+                    color: currentTheme.colors.text,
+                    cursor: changingUsername ? "not-allowed" : "pointer",
+                    fontSize: "14px",
+                    fontWeight: "600",
+                  }}
+                >
+                  İptal
+                </button>
+                <button
+                  type="submit"
+                  disabled={changingUsername || !newUsername}
+                  style={{
+                    padding: "10px 20px",
+                    borderRadius: "8px",
+                    border: "none",
+                    backgroundColor: changingUsername ? "#ccc" : currentTheme.colors.primary,
+                    color: "white",
+                    cursor: changingUsername || !newUsername ? "not-allowed" : "pointer",
+                    fontSize: "14px",
+                    fontWeight: "600",
+                  }}
+                >
+                  {changingUsername ? "Değiştiriliyor..." : "Değiştir"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Account Modal */}
+      {showDeleteAccount && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.7)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 2000,
+            padding: "20px",
+          }}
+          onClick={() => !deletingAccount && setShowDeleteAccount(false)}
+        >
+          <div
+            style={{
+              backgroundColor: currentTheme.colors.card,
+              borderRadius: "15px",
+              padding: "30px",
+              width: "100%",
+              maxWidth: "500px",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 style={{ fontSize: "24px", fontWeight: "bold", color: currentTheme.colors.danger, marginTop: 0 }}>
+              🗑️ Hesabı Sil
+            </h2>
+            <p style={{ color: currentTheme.colors.text, marginBottom: "20px", fontSize: "14px" }}>
+              Bu işlem geri alınamaz. Profiliniz ve tüm bağlantılarınız kalıcı olarak silinecek.
+            </p>
+            <p style={{ color: currentTheme.colors.danger, marginBottom: "20px", fontSize: "13px", backgroundColor: "#fee", padding: "10px", borderRadius: "8px" }}>
+              ⚠️ <strong>UYARI:</strong> Bu işlem geri alınamaz!
+            </p>
+
+            <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
+              <button
+                onClick={() => setShowDeleteAccount(false)}
+                disabled={deletingAccount}
+                style={{
+                  padding: "10px 20px",
+                  borderRadius: "8px",
+                  border: `1px solid ${currentTheme.colors.border}`,
+                  backgroundColor: currentTheme.colors.card,
+                  color: currentTheme.colors.text,
+                  cursor: deletingAccount ? "not-allowed" : "pointer",
+                  fontSize: "14px",
+                  fontWeight: "600",
+                }}
+              >
+                İptal
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={deletingAccount}
+                style={{
+                  padding: "10px 20px",
+                  borderRadius: "8px",
+                  border: "none",
+                  backgroundColor: deletingAccount ? "#ccc" : currentTheme.colors.danger,
+                  color: "white",
+                  cursor: deletingAccount ? "not-allowed" : "pointer",
+                  fontSize: "14px",
+                  fontWeight: "600",
+                }}
+              >
+                {deletingAccount ? "Siliniyor..." : "Hesabı Kalıcı Olarak Sil"}
               </button>
             </div>
           </div>

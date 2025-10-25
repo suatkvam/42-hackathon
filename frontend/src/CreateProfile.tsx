@@ -3,6 +3,7 @@ import { useSignAndExecuteTransaction, useSuiClient } from "@mysten/dapp-kit";
 import { Transaction } from "@mysten/sui/transactions";
 import { PACKAGE_ID, MODULE_NAME, REGISTRY_ID } from "./constants";
 import { uploadImageToWalrus, getWalrusImageUrl } from "./walrusService";
+import { getTheme, getThemeNames } from "./themes";
 
 interface CreateProfileProps {
   onClose: () => void;
@@ -380,22 +381,40 @@ export default function CreateProfile({ onClose, onSuccess, isEditing = false, p
             <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>
               Theme
             </label>
-            <select
-              value={theme}
-              onChange={(e) => setTheme(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "10px",
-                borderRadius: "5px",
-                border: "1px solid #ccc",
-                boxSizing: "border-box",
-              }}
-            >
-              <option value="default">Default</option>
-              <option value="dark">Dark</option>
-              <option value="light">Light</option>
-              <option value="orange">Orange</option>
-            </select>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))", gap: "10px" }}>
+              {getThemeNames().map((themeName) => {
+                const themeObj = getTheme(themeName);
+                return (
+                  <div
+                    key={themeName}
+                    onClick={() => setTheme(themeName)}
+                    style={{
+                      cursor: "pointer",
+                      borderRadius: "10px",
+                      overflow: "hidden",
+                      border: theme === themeName ? "3px solid #c96d37" : "2px solid #ccc",
+                      transition: "all 0.2s",
+                    }}
+                  >
+                    <div
+                      style={{
+                        background: themeObj.gradient,
+                        height: "60px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "white",
+                        fontSize: "11px",
+                        fontWeight: "600",
+                        textShadow: "1px 1px 2px rgba(0,0,0,0.5)",
+                      }}
+                    >
+                      {themeObj.name.split(' ')[0]}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           </div>

@@ -1,6 +1,9 @@
 module move_backend::linktree {
     use std::string::String;
+    use std::option::{Self, Option};
     use sui::vec_map::{Self, VecMap};
+    use sui::coin::{Self, Coin};
+    use sui::sui::SUI;
     
     // YENİ V2 İmportları:
     use sui::dynamic_field as df; 
@@ -17,7 +20,8 @@ module move_backend::linktree {
         bio: String,
         blob_id: String,
         links: VecMap<String, String>,
-        theme: String
+        theme: String,
+        username_change_count: u64  // Kaç kez username değiştirildi
     }
 
     // YENİ: ProfileRegistry objesi eklendi
@@ -27,6 +31,12 @@ module move_backend::linktree {
 
     // --- Hata Kodları ---
     const ENotOwner: u64 = 0;
+    const EReservedUsername: u64 = 1;
+    const EUsernameAlreadyTaken: u64 = 2;
+    const EInsufficientPayment: u64 = 3;
+
+    // --- Sabitler ---
+    const USERNAME_CHANGE_FEE: u64 = 1_000_000_000; // 1 SUI (sonraki değişiklikler için)
 
     // --- Fonksiyonlar (V2) ---
 
@@ -55,7 +65,8 @@ module move_backend::linktree {
             bio: bio,
             blob_id: blob_id,
             links: vec_map::empty<String, String>(),
-            theme: theme
+            theme: theme,
+            username_change_count: 0
         };
         transfer::transfer(profile, tx_context::sender(ctx));
     }
@@ -71,6 +82,12 @@ module move_backend::linktree {
         theme: String,
         ctx: &mut TxContext
     ) {
+        // Reserved username kontrolü
+        assert!(!is_reserved_username(&username), EReservedUsername);
+        
+        // Username daha önce alınmış mı kontrolü
+        assert!(!username_exists(registry, username), EUsernameAlreadyTaken);
+
         let profile = LinkTreeProfile {
             id: object::new(ctx),
             owner: tx_context::sender(ctx),
@@ -79,7 +96,8 @@ module move_backend::linktree {
             bio: bio,
             blob_id: blob_id,
             links: vec_map::empty<String, String>(),
-            theme: theme
+            theme: theme,
+            username_change_count: 0
         };
 
         // Dinamik Alan Ekleme
@@ -105,13 +123,20 @@ module move_backend::linktree {
         profile.theme = theme;
     }
 
-    // 4. PROFİL SİLME (YENİ)
+    // 4. PROFİL SİLME (YENİ - REGISTRY'DEN DE SİLER)
     public entry fun delete_profile(
+        registry: &mut ProfileRegistry,
         profile: LinkTreeProfile,
         ctx: &mut TxContext
     ) {
-        let LinkTreeProfile { id, owner, username: _, name: _, bio: _, blob_id: _, links: _, theme: _ } = profile;
+        let LinkTreeProfile { id, owner, username, name: _, bio: _, blob_id: _, links: _, theme: _, username_change_count: _ } = profile;
         assert!(owner == tx_context::sender(ctx), ENotOwner);
+        
+        // Registry'den username'i sil
+        if (df::exists_<String>(&registry.id, username)) {
+            df::remove<String, ID>(&mut registry.id, username);
+        };
+        
         object::delete(id);
     }
 
@@ -126,7 +151,52 @@ module move_backend::linktree {
         vec_map::insert(&mut profile.links, label, url);
     }
 
-    // 6. OKUMA FONKSİYONLARI (EKLENDİ)
+    // 6. USERNAME DEĞİŞTİRME (YENİ)
+    public entry fun change_username(
+        registry: &mut ProfileRegistry,
+        profile: &mut LinkTreeProfile,
+        new_username: String,
+        payment: Option<Coin<SUI>>,
+        ctx: &mut TxContext
+    ) {
+        assert!(profile.owner == tx_context::sender(ctx), ENotOwner);
+        
+        // Reserved username kontrolü
+        assert!(!is_reserved_username(&new_username), EReservedUsername);
+        
+        // Yeni username daha önce alınmış mı kontrolü
+        assert!(!username_exists(registry, new_username), EUsernameAlreadyTaken);
+        
+        // İlk değişiklikten sonra ödeme gerekli
+        if (profile.username_change_count > 0) {
+            assert!(option::is_some(&payment), EInsufficientPayment);
+            let coin = option::destroy_some(payment);
+            assert!(coin::value(&coin) >= USERNAME_CHANGE_FEE, EInsufficientPayment);
+            // Ücreti yak veya hazineye gönder
+            transfer::public_transfer(coin, @0x0); // Yakma
+        } else {
+            // İlk değişiklik bedava, ödeme varsa geri ver
+            if (option::is_some(&payment)) {
+                let coin = option::destroy_some(payment);
+                transfer::public_transfer(coin, tx_context::sender(ctx));
+            };
+        };
+        
+        // Eski username'i registry'den sil
+        if (df::exists_<String>(&registry.id, profile.username)) {
+            df::remove<String, ID>(&mut registry.id, profile.username);
+        };
+        
+        // Yeni username'i registry'ye ekle
+        let profile_id = object::uid_to_inner(&profile.id);
+        df::add(&mut registry.id, new_username, profile_id);
+        
+        // Profile'daki username'i güncelle
+        profile.username = new_username;
+        profile.username_change_count = profile.username_change_count + 1;
+    }
+
+    // 7. OKUMA FONKSİYONLARI (EKLENDİ)
     public fun get_profile_id_by_username(
         registry: &ProfileRegistry, 
         username: String
@@ -139,6 +209,36 @@ module move_backend::linktree {
         username: String
     ): bool {
         df::exists_<String>(&registry.id, username)
+    }
+
+    // Reserved username kontrolü
+    fun is_reserved_username(username: &String): bool {
+        let reserved = vector[
+            std::string::utf8(b"dashboard"),
+            std::string::utf8(b"admin"),
+            std::string::utf8(b"root"),
+            std::string::utf8(b"system"),
+            std::string::utf8(b"api"),
+            std::string::utf8(b"www"),
+            std::string::utf8(b"app"),
+            std::string::utf8(b"support"),
+            std::string::utf8(b"help"),
+            std::string::utf8(b"settings"),
+            std::string::utf8(b"profile"),
+            std::string::utf8(b"login"),
+            std::string::utf8(b"register"),
+            std::string::utf8(b"signup"),
+            std::string::utf8(b"signin"),
+            std::string::utf8(b"logout"),
+            std::string::utf8(b"home"),
+            std::string::utf8(b"about"),
+            std::string::utf8(b"contact"),
+            std::string::utf8(b"terms"),
+            std::string::utf8(b"privacy"),
+            std::string::utf8(b"legal")
+        ];
+        
+        vector::contains(&reserved, username)
     }
 
 }

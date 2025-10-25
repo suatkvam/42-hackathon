@@ -3,6 +3,7 @@ import { useSuiClient } from "@mysten/dapp-kit";
 import { useParams, useNavigate } from "react-router-dom";
 import { getWalrusImageUrl } from "./walrusService";
 import { PACKAGE_ID, REGISTRY_ID } from "./constants";
+import { getTheme, type Theme } from "./themes";
 
 export default function PublicProfile() {
   const { username } = useParams<{ username: string }>();
@@ -12,6 +13,11 @@ export default function PublicProfile() {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [currentTheme, setCurrentTheme] = useState<Theme>(() => {
+    // Kullanıcı profili yüklenmeden önce, kaydedilmiş temayı kullan
+    const savedTheme = localStorage.getItem("suitree_theme");
+    return getTheme(savedTheme || "default");
+  });
 
   useEffect(() => {
     async function loadProfileByUsername() {
@@ -58,14 +64,17 @@ export default function PublicProfile() {
             const fields = profileObj.data.content.fields as any;
             const avatarId = fields.blob_id || fields.avatar_cid;
 
+            const themeName = fields.theme || "default";
             setProfile({
               name: fields.name,
               bio: fields.bio,
               avatar: avatarId,
               links: fields.links || [],
-              theme: fields.theme,
+              theme: themeName,
               owner: fields.owner,
             });
+            // Profil sahibinin temasını uygula ama kaydetme
+            setCurrentTheme(getTheme(themeName));
           } else {
             setError("Profile not found");
           }
@@ -87,7 +96,7 @@ export default function PublicProfile() {
     <div
       style={{
         minHeight: "100vh",
-        background: "linear-gradient(180deg, #c96d37, #1f1f1f)",
+        background: currentTheme.gradient,
         fontFamily: "Poppins, sans-serif",
       }}
     >
@@ -118,7 +127,7 @@ export default function PublicProfile() {
           style={{
             padding: "10px 25px",
             backgroundColor: "white",
-            color: "#c96d37",
+            color: currentTheme.colors.primary,
             border: "none",
             borderRadius: "8px",
             cursor: "pointer",
@@ -126,12 +135,12 @@ export default function PublicProfile() {
             transition: "all 0.3s",
           }}
           onMouseOver={(e) => {
-            e.currentTarget.style.backgroundColor = "#ff8b3d";
+            e.currentTarget.style.backgroundColor = currentTheme.colors.primary;
             e.currentTarget.style.color = "white";
           }}
           onMouseOut={(e) => {
             e.currentTarget.style.backgroundColor = "white";
-            e.currentTarget.style.color = "#c96d37";
+            e.currentTarget.style.color = currentTheme.colors.primary;
           }}
         >
           My Profile
@@ -176,7 +185,7 @@ export default function PublicProfile() {
                   marginTop: "20px",
                   padding: "10px 20px",
                   backgroundColor: "white",
-                  color: "#c96d37",
+                  color: currentTheme.colors.primary,
                   border: "none",
                   borderRadius: "8px",
                   cursor: "pointer",
@@ -234,12 +243,14 @@ export default function PublicProfile() {
                     fontWeight: "bold",
                     transition: "all 0.3s",
                   }}
-                  onMouseOver={(e) =>
-                    (e.currentTarget.style.backgroundColor = "#ff8b3d")
-                  }
-                  onMouseOut={(e) =>
-                    (e.currentTarget.style.backgroundColor = "white")
-                  }
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.backgroundColor = currentTheme.colors.primary;
+                    e.currentTarget.style.color = "white";
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.backgroundColor = "white";
+                    e.currentTarget.style.color = "#000";
+                  }}
                 >
                   {link.label || link.value?.[0]}
                 </a>

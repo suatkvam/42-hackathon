@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useSignAndExecuteTransaction } from "@mysten/dapp-kit";
 import { Transaction } from "@mysten/sui/transactions";
 import { PACKAGE_ID, MODULE_NAME, REGISTRY_ID } from "./constants";
+import { getTheme, getThemeNames } from "./themes";
 
 interface Link {
   id: string;
@@ -319,26 +320,45 @@ export default function CreateProfileSimple({ onClose, onSuccess }: CreateProfil
 
           {/* Theme */}
           <div>
-            <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold", fontSize: "14px" }}>
-              Tema
+            <label style={{ display: "block", marginBottom: "10px", fontWeight: "bold", fontSize: "14px" }}>
+              Tema Seçin 🎨
             </label>
-            <select
-              value={theme}
-              onChange={(e) => setTheme(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "10px",
-                borderRadius: "5px",
-                border: "1px solid #ccc",
-                boxSizing: "border-box",
-                fontSize: "14px",
-              }}
-            >
-              <option value="default">Varsayılan</option>
-              <option value="dark">Koyu</option>
-              <option value="light">Açık</option>
-              <option value="orange">Turuncu</option>
-            </select>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", gap: "10px" }}>
+              {getThemeNames().map((themeName) => {
+                const themeObj = getTheme(themeName);
+                return (
+                  <div
+                    key={themeName}
+                    onClick={() => setTheme(themeName)}
+                    style={{
+                      cursor: "pointer",
+                      borderRadius: "8px",
+                      overflow: "hidden",
+                      border: theme === themeName ? "3px solid #4299e1" : "2px solid #ccc",
+                      transition: "all 0.2s",
+                    }}
+                  >
+                    <div
+                      style={{
+                        background: themeObj.gradient,
+                        height: "50px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "white",
+                        fontSize: "10px",
+                        fontWeight: "600",
+                        textShadow: "1px 1px 2px rgba(0,0,0,0.5)",
+                        padding: "5px",
+                        textAlign: "center",
+                      }}
+                    >
+                      {themeObj.name.split(' ')[0]}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           {/* Info Box */}
