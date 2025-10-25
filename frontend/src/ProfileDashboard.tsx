@@ -7,6 +7,7 @@ import CreateProfileSimple from "./CreateProfileSimple";
 import { getWalrusImageUrl } from "./walrusService";
 import { PACKAGE_ID, MODULE_NAME, REGISTRY_ID } from "./constants";
 import { getTheme, getThemeNames, type Theme } from "./themes";
+import { getAnalytics, isAnalyticsEnabled, type AnalyticsStats } from "./analyticsService";
 
 export default function ProfileDashboard() {
   const account = useCurrentAccount();
@@ -44,6 +45,9 @@ export default function ProfileDashboard() {
   const [showEditLink, setShowEditLink] = useState(false);
   const [editingLink, setEditingLink] = useState<{oldLabel: string; label: string; url: string} | null>(null);
   const [savingLink, setSavingLink] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsStats | null>(null);
+  const [loadingAnalytics, setLoadingAnalytics] = useState(false);
 
   // Redirect if not connected
   useEffect(() => {
@@ -488,7 +492,17 @@ export default function ProfileDashboard() {
         <NavItem icon="🏠" label="My Linktree" active theme={currentTheme} />
         <NavItem icon="🎨" label="Appearance" onClick={() => setShowThemeModal(true)} theme={currentTheme} />
         <NavItem icon="👤" label="Change Username" onClick={() => setShowChangeUsername(true)} theme={currentTheme} />
-        <NavItem icon="📊" label="Analytics" onClick={() => alert("Coming soon")} theme={currentTheme} />
+        <NavItem icon="📊" label="Analytics" onClick={async () => {
+          if (!isAnalyticsEnabled()) {
+            alert("Analytics is not configured. Please add Supabase credentials to .env file.");
+            return;
+          }
+          setShowAnalytics(true);
+          setLoadingAnalytics(true);
+          const stats = await getAnalytics(profileObjectId);
+          setAnalyticsData(stats);
+          setLoadingAnalytics(false);
+        }} theme={currentTheme} />
         <NavItem icon="🗑️" label="Delete Account" onClick={() => setShowDeleteAccount(true)} theme={currentTheme} />
         
         <div style={{ marginTop: "auto", paddingTop: "20px", borderTop: `1px solid ${currentTheme.colors.border}` }}>
@@ -1069,6 +1083,186 @@ export default function ProfileDashboard() {
         </div>
       )}
 
+      {/* Analytics Modal */}
+      {showAnalytics && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.7)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 2000,
+            padding: "20px",
+            overflow: "auto",
+          }}
+          onClick={() => setShowAnalytics(false)}
+        >
+          <div
+            style={{
+              backgroundColor: currentTheme.colors.card,
+              borderRadius: "15px",
+              padding: "30px",
+              width: "100%",
+              maxWidth: "700px",
+              maxHeight: "90vh",
+              overflow: "auto",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+              <h2 style={{ fontSize: "24px", fontWeight: "bold", color: currentTheme.colors.text, margin: 0 }}>
+                📊 Analytics
+              </h2>
+              <button
+                onClick={() => setShowAnalytics(false)}
+                style={{
+                  padding: "8px",
+                  backgroundColor: "transparent",
+                  border: "none",
+                  fontSize: "24px",
+                  cursor: "pointer",
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {loadingAnalytics ? (
+              <div style={{ textAlign: "center", padding: "40px", color: currentTheme.colors.textSecondary }}>
+                <div style={{ fontSize: "48px", marginBottom: "20px" }}>🔄</div>
+                <p>Loading analytics...</p>
+              </div>
+            ) : !analyticsData ? (
+              <div style={{ textAlign: "center", padding: "40px", color: currentTheme.colors.textSecondary }}>
+                <div style={{ fontSize: "48px", marginBottom: "20px" }}>🚧</div>
+                <p>Analytics not available</p>
+                <p style={{ fontSize: "14px", marginTop: "10px" }}>Make sure Supabase is configured in .env file</p>
+              </div>
+            ) : analyticsData.totalClicks === 0 ? (
+              <div style={{ textAlign: "center", padding: "40px", color: currentTheme.colors.textSecondary }}>
+                <div style={{ fontSize: "48px", marginBottom: "20px" }}>📊</div>
+                <p>No clicks tracked yet</p>
+                <p style={{ fontSize: "14px", marginTop: "10px" }}>Start sharing your profile to see analytics</p>
+              </div>
+            ) : (
+              <div>
+                {/* Summary Cards */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "15px", marginBottom: "30px" }}>
+                  <div style={{
+                    padding: "20px",
+                    backgroundColor: currentTheme.colors.cardHover,
+                    borderRadius: "12px",
+                    textAlign: "center",
+                  }}>
+                    <div style={{ fontSize: "32px", fontWeight: "bold", color: currentTheme.colors.primary }}>
+                      {analyticsData.totalClicks}
+                    </div>
+                    <div style={{ fontSize: "14px", color: currentTheme.colors.textSecondary, marginTop: "5px" }}>
+                      Total Clicks
+                    </div>
+                  </div>
+                  <div style={{
+                    padding: "20px",
+                    backgroundColor: currentTheme.colors.cardHover,
+                    borderRadius: "12px",
+                    textAlign: "center",
+                  }}>
+                    <div style={{ fontSize: "32px", fontWeight: "bold", color: currentTheme.colors.primary }}>
+                      {analyticsData.topLinks.length}
+                    </div>
+                    <div style={{ fontSize: "14px", color: currentTheme.colors.textSecondary, marginTop: "5px" }}>
+                      Active Links
+                    </div>
+                  </div>
+                </div>
+
+                {/* Top Links */}
+                <div style={{ marginBottom: "30px" }}>
+                  <h3 style={{ fontSize: "18px", fontWeight: "600", color: currentTheme.colors.text, marginBottom: "15px" }}>
+                    Top Links
+                  </h3>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                    {analyticsData.topLinks.map((link, index) => (
+                      <div
+                        key={link.label}
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          padding: "15px",
+                          backgroundColor: currentTheme.colors.cardHover,
+                          borderRadius: "10px",
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                          <div style={{
+                            fontSize: "18px",
+                            fontWeight: "bold",
+                            color: currentTheme.colors.textSecondary,
+                            minWidth: "30px",
+                          }}>
+                            #{index + 1}
+                          </div>
+                          <div>
+                            <div style={{ fontSize: "16px", fontWeight: "600", color: currentTheme.colors.text }}>
+                              {link.label}
+                            </div>
+                          </div>
+                        </div>
+                        <div style={{
+                          fontSize: "20px",
+                          fontWeight: "bold",
+                          color: currentTheme.colors.primary,
+                        }}>
+                          {link.clicks}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Clicks by Day */}
+                <div>
+                  <h3 style={{ fontSize: "18px", fontWeight: "600", color: currentTheme.colors.text, marginBottom: "15px" }}>
+                    Recent Activity (Last 7 Days)
+                  </h3>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                    {Object.entries(analyticsData.clicksByDay)
+                      .sort(([a], [b]) => new Date(b).getTime() - new Date(a).getTime())
+                      .slice(0, 7)
+                      .map(([day, clicks]) => (
+                        <div
+                          key={day}
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            padding: "12px",
+                            backgroundColor: currentTheme.colors.cardHover,
+                            borderRadius: "8px",
+                          }}
+                        >
+                          <div style={{ fontSize: "14px", color: currentTheme.colors.text }}>
+                            {day}
+                          </div>
+                          <div style={{ fontSize: "16px", fontWeight: "600", color: currentTheme.colors.primary }}>
+                            {clicks} clicks
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Edit Link Modal */}
       {showEditLink && editingLink && (
         <div
@@ -1607,7 +1801,17 @@ function LinkCard({ label, url, onEdit, onDelete, deleting }: { label: string; u
         </div>
         <div style={{ display: "flex", gap: "8px" }}>
           <IconButton icon="✏️" onClick={onEdit} />
-          <IconButton icon="📊" onClick={() => alert("Analytics coming soon!")} />
+          <IconButton icon="📊" onClick={async () => {
+            if (!isAnalyticsEnabled()) {
+              alert("Analytics not configured");
+              return;
+            }
+            setShowAnalytics(true);
+            setLoadingAnalytics(true);
+            const stats = await getAnalytics(profileObjectId);
+            setAnalyticsData(stats);
+            setLoadingAnalytics(false);
+          }} />
           <IconButton 
             icon={deleting ? "⏳" : "🗑️"} 
             onClick={onDelete} 

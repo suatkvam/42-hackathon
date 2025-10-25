@@ -4,6 +4,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { getWalrusImageUrl } from "./walrusService";
 import { PACKAGE_ID, REGISTRY_ID } from "./constants";
 import { getTheme, type Theme } from "./themes";
+import { trackLinkClick } from "./analyticsService";
 
 export default function PublicProfileNew() {
   const { username } = useParams<{ username: string }>();
@@ -11,6 +12,7 @@ export default function PublicProfileNew() {
   const suiClient = useSuiClient();
   
   const [profile, setProfile] = useState<any>(null);
+  const [profileId, setProfileId] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [theme, setTheme] = useState<Theme>(getTheme("default"));
@@ -57,6 +59,9 @@ export default function PublicProfileNew() {
           const profileId = dfFields.value;
           
           console.log("Profile ID from dynamic field:", profileId);
+          
+          // Store profile ID for analytics
+          setProfileId(profileId);
           
           // Fetch the profile object
           const profileObj = await suiClient.getObject({
@@ -309,6 +314,14 @@ export default function PublicProfileNew() {
                 href={link.value}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => {
+                  // Track click asynchronously
+                  if (profileId) {
+                    trackLinkClick(profileId, link.key).catch(err => 
+                      console.error('Failed to track click:', err)
+                    );
+                  }
+                }}
                 style={{
                   display: "block",
                   padding: "20px 24px",
