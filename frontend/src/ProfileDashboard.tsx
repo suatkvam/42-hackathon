@@ -35,6 +35,7 @@ export default function ProfileDashboard() {
   const [changingUsername, setChangingUsername] = useState(false);
   const [showDeleteAccount, setShowDeleteAccount] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deletingLink, setDeletingLink] = useState<string | null>(null);
 
   // Redirect if not connected
   useEffect(() => {
@@ -107,6 +108,44 @@ export default function ProfileDashboard() {
 
     loadProfile();
   }, [account, suiClient]);
+
+  const handleDeleteLink = async (label: string) => {
+    if (!profileObjectId) {
+      alert("Error: Profile not loaded");
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to delete the link "${label}"?`)) {
+      return;
+    }
+
+    setDeletingLink(label);
+    const tx = new Transaction();
+    tx.setGasBudget(10000000);
+    tx.moveCall({
+      target: `${PACKAGE_ID}::${MODULE_NAME}::remove_link`,
+      arguments: [
+        tx.object(profileObjectId),
+        tx.pure.string(label),
+      ],
+    });
+
+    signAndExecute(
+      { transaction: tx },
+      {
+        onSuccess: () => {
+          alert("Link deleted successfully!");
+          setDeletingLink(null);
+          setTimeout(() => window.location.reload(), 500);
+        },
+        onError: (error) => {
+          console.error("Failed to delete link:", error);
+          alert("Failed to delete link: " + error.message);
+          setDeletingLink(null);
+        },
+      }
+    );
+  };
 
   const handleAddLink = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -498,6 +537,8 @@ export default function ProfileDashboard() {
                       key={index}
                       label={link.key || `Link ${index + 1}`}
                       url={link.value || "#"}
+                      onDelete={() => handleDeleteLink(link.key)}
+                      deleting={deletingLink === link.key}
                     />
                   ))
                 ) : (
@@ -1202,7 +1243,7 @@ function Button({
   );
 }
 
-function LinkCard({ label, url }: { label: string; url: string }) {
+function LinkCard({ label, url, onDelete, deleting }: { label: string; url: string; onDelete: () => void; deleting?: boolean }) {
   return (
     <Card>
       <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
@@ -1218,35 +1259,46 @@ function LinkCard({ label, url }: { label: string; url: string }) {
         <div style={{ display: "flex", gap: "8px" }}>
           <IconButton icon="✏️" onClick={() => alert("Edit coming soon!")} />
           <IconButton icon="📊" onClick={() => alert("Analytics coming soon!")} />
-          <IconButton icon="🗑️" onClick={() => alert("Delete coming soon!")} danger />
+          <IconButton 
+            icon={deleting ? "⏳" : "🗑️"} 
+            onClick={onDelete} 
+            danger 
+            disabled={deleting}
+          />
         </div>
       </div>
     </Card>
   );
 }
 
-function IconButton({ icon, onClick, danger }: { icon: string; onClick: () => void; danger?: boolean }) {
+function IconButton({ icon, onClick, danger, disabled }: { icon: string; onClick: () => void; danger?: boolean; disabled?: boolean }) {
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
       style={{
         width: "36px",
         height: "36px",
         borderRadius: "8px",
         border: "1px solid #e2e8f0",
         backgroundColor: "white",
-        cursor: "pointer",
+        cursor: disabled ? "not-allowed" : "pointer",
         fontSize: "14px",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        transition: "all 0.2s"
+        transition: "all 0.2s",
+        opacity: disabled ? 0.5 : 1
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.backgroundColor = danger ? "#fee" : "#f7fafc";
+        if (!disabled) {
+          e.currentTarget.style.backgroundColor = danger ? "#fee" : "#f7fafc";
+        }
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.backgroundColor = "white";
+        if (!disabled) {
+          e.currentTarget.style.backgroundColor = "white";
+        }
       }}
     >
       {icon}

@@ -151,6 +151,31 @@ module move_backend::linktree {
         vec_map::insert(&mut profile.links, label, url);
     }
 
+    // 5b. LINK SİLME (YENİ)
+    public entry fun remove_link(
+        profile: &mut LinkTreeProfile,
+        label: String,
+        ctx: &mut TxContext
+    ) {
+        assert!(profile.owner == tx_context::sender(ctx), ENotOwner);
+        let (_key, _value) = vec_map::remove(&mut profile.links, &label);
+    }
+
+    // 5c. LINK GÜNCELLEME (YENİ)
+    public entry fun update_link(
+        profile: &mut LinkTreeProfile,
+        old_label: String,
+        new_label: String,
+        new_url: String,
+        ctx: &mut TxContext
+    ) {
+        assert!(profile.owner == tx_context::sender(ctx), ENotOwner);
+        // Eski linki sil
+        let (_key, _value) = vec_map::remove(&mut profile.links, &old_label);
+        // Yeni linki ekle
+        vec_map::insert(&mut profile.links, new_label, new_url);
+    }
+
     // 6. USERNAME DEĞİŞTİRME (YENİ - BASİTLEŞTİRİLMİŞ)
     public entry fun change_username(
         registry: &mut ProfileRegistry,
