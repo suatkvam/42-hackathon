@@ -87,7 +87,7 @@ module move_backend::linktree {
     }
 
     // 3. PROFİL GÜNCELLEME (YENİ)
-    public fun update_profile(
+    public entry fun update_profile(
         profile: &mut LinkTreeProfile,
         name: String,
         bio: String,

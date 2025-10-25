@@ -7,18 +7,27 @@ import { uploadImageToWalrus, getWalrusImageUrl } from "./walrusService";
 interface CreateProfileProps {
   onClose: () => void;
   onSuccess: () => void;
+  isEditing?: boolean;
+  profileObjectId?: string;
+  existingProfile?: {
+    username?: string;
+    name: string;
+    bio: string;
+    avatar: string;
+    theme: string;
+  };
 }
 
-export default function CreateProfile({ onClose, onSuccess }: CreateProfileProps) {
-  const [username, setUsername] = useState("");
-  const [name, setName] = useState("");
-  const [bio, setBio] = useState("");
-  const [blobId, setBlobId] = useState("");
-  const [theme, setTheme] = useState("default");
+export default function CreateProfile({ onClose, onSuccess, isEditing = false, profileObjectId = "", existingProfile }: CreateProfileProps) {
+  const [username, setUsername] = useState(existingProfile?.username || "");
+  const [name, setName] = useState(existingProfile?.name || "");
+  const [bio, setBio] = useState(existingProfile?.bio || "");
+  const [blobId, setBlobId] = useState(existingProfile?.avatar || "");
+  const [theme, setTheme] = useState(existingProfile?.theme || "default");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [uploading, setUploading] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState("");
+  const [previewUrl, setPreviewUrl] = useState(existingProfile?.avatar ? getWalrusImageUrl(existingProfile.avatar) : "");
 
   const { mutate: signAndExecute } = useSignAndExecuteTransaction();
   const suiClient = useSuiClient();
@@ -79,17 +88,32 @@ export default function CreateProfile({ onClose, onSuccess }: CreateProfileProps
       // Set gas budget explicitly to avoid "could not automatically determine a budget" error
       tx.setGasBudget(10000000); // 0.01 SUI
 
-      tx.moveCall({
-        target: `${PACKAGE_ID}::${MODULE_NAME}::create_profile_v2`,
-        arguments: [
-          tx.object(REGISTRY_ID),
-          tx.pure.string(username),
-          tx.pure.string(name),
-          tx.pure.string(bio),
-          tx.pure.string(blobId),
-          tx.pure.string(theme),
-        ],
-      });
+      if (isEditing && profileObjectId) {
+        // Update existing profile
+        tx.moveCall({
+          target: `${PACKAGE_ID}::${MODULE_NAME}::update_profile`,
+          arguments: [
+            tx.object(profileObjectId),
+            tx.pure.string(name),
+            tx.pure.string(bio),
+            tx.pure.string(blobId),
+            tx.pure.string(theme),
+          ],
+        });
+      } else {
+        // Create new profile
+        tx.moveCall({
+          target: `${PACKAGE_ID}::${MODULE_NAME}::create_profile_v2`,
+          arguments: [
+            tx.object(REGISTRY_ID),
+            tx.pure.string(username),
+            tx.pure.string(name),
+            tx.pure.string(bio),
+            tx.pure.string(blobId),
+            tx.pure.string(theme),
+          ],
+        });
+      }
 
       signAndExecute(
         {
@@ -143,10 +167,13 @@ export default function CreateProfile({ onClose, onSuccess }: CreateProfileProps
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 style={{ marginTop: 0, marginBottom: "20px", flexShrink: 0 }}>Create Profile</h2>
+        <h2 style={{ marginTop: 0, marginBottom: "20px", flexShrink: 0 }}>
+          {isEditing ? "✏️ Update Profile" : "➕ Create Profile"}
+        </h2>
         
         <form onSubmit={handleSubmit} style={{ overflow: "auto", flexGrow: 1, display: "flex", flexDirection: "column" }}>
           <div style={{ overflow: "auto", flexGrow: 1, paddingRight: "5px" }}>
+          {!isEditing && (
           <div style={{ marginBottom: "15px" }}>
             <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>
               Username *
@@ -166,6 +193,7 @@ export default function CreateProfile({ onClose, onSuccess }: CreateProfileProps
               placeholder="Enter unique username"
             />
           </div>
+          )}
 
           <div style={{ marginBottom: "15px" }}>
             <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>
@@ -351,7 +379,7 @@ export default function CreateProfile({ onClose, onSuccess }: CreateProfileProps
                 fontWeight: "bold",
               }}
             >
-              {loading ? "Creating..." : "Create Profile"}
+              {loading ? (isEditing ? "Updating..." : "Creating...") : (isEditing ? "Update Profile" : "Create Profile")}
             </button>
           </div>
         </form>

@@ -3,6 +3,7 @@ import { useCurrentAccount, useDisconnectWallet, useSuiClient } from "@mysten/da
 import { useNavigate } from "react-router-dom";
 import CreateProfile from "./CreateProfile";
 import { getWalrusImageUrl } from "./walrusService";
+import { PACKAGE_ID } from "./constants";
 
 export default function ProfilePage() {
   const account = useCurrentAccount();
@@ -13,6 +14,7 @@ export default function ProfilePage() {
   const [showCreateProfile, setShowCreateProfile] = useState(false);
   const [showDisconnect, setShowDisconnect] = useState(false);
   const [userProfile, setUserProfile] = useState<any>(null);
+  const [profileObjectId, setProfileObjectId] = useState<string>("");
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [profileError, setProfileError] = useState("");
 
@@ -46,10 +48,12 @@ export default function ProfilePage() {
 
         console.log("Total objects owned:", objects.data.length);
 
-        // Find ALL LinkTreeProfile objects
-        const profileObjects = objects.data.filter((obj: any) => 
-          obj.data?.type?.includes("::linktree::LinkTreeProfile")
-        );
+        // Find ALL LinkTreeProfile objects from CURRENT contract only
+        const profileObjects = objects.data.filter((obj: any) => {
+          const type = obj.data?.type;
+          return type?.includes("::linktree::LinkTreeProfile") && 
+                 type?.startsWith(PACKAGE_ID);
+        });
 
         console.log("Total profiles found:", profileObjects.length);
 
@@ -65,6 +69,7 @@ export default function ProfilePage() {
           // Support both old field name (avatar_cid) and new field name (blob_id)
           const avatarId = fields.blob_id || fields.avatar_cid;
           
+          setProfileObjectId(profileObj.data.objectId);
           setUserProfile({
             name: fields.name,
             bio: fields.bio,
@@ -315,9 +320,17 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Create Profile Modal */}
+      {/* Create/Edit Profile Modal */}
       {showCreateProfile && (
         <CreateProfile
+          isEditing={!!userProfile}
+          profileObjectId={profileObjectId}
+          existingProfile={userProfile ? {
+            name: userProfile.name,
+            bio: userProfile.bio,
+            avatar: userProfile.avatar,
+            theme: userProfile.theme,
+          } : undefined}
           onClose={() => setShowCreateProfile(false)}
           onSuccess={() => {
             setShowCreateProfile(false);
