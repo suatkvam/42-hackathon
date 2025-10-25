@@ -321,7 +321,7 @@ export default function CreateProfileSimple({ onClose, onSuccess }: CreateProfil
           {/* Theme */}
           <div>
             <label style={{ display: "block", marginBottom: "10px", fontWeight: "bold", fontSize: "14px" }}>
-              Tema Seçin 🎨
+              Choose Theme 🎨
             </label>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", gap: "10px" }}>
               {getThemeNames().map((themeName) => {
@@ -370,7 +370,7 @@ export default function CreateProfileSimple({ onClose, onSuccess }: CreateProfil
             fontSize: "13px",
             color: "#234e52",
           }}>
-            <strong>ℹ️ Not:</strong> Avatar ve NFT özelliklerini daha sonra profil ayarlarından ekleyebilirsiniz.
+            <strong>ℹ️ Note:</strong> Avatar and NFT features can be added later from profile settings.
           </div>
 
           {/* Error Message */}
@@ -419,7 +419,7 @@ export default function CreateProfileSimple({ onClose, onSuccess }: CreateProfil
                 fontWeight: "bold",
               }}
             >
-              {loading ? "Oluşturuluyor..." : "Profil Oluştur"}
+              {loading ? "Creating..." : "Create Profile"}
             </button>
           </div>
         </form>
