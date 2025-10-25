@@ -28,30 +28,45 @@ export default function PublicProfileNew() {
 
       try {
         console.log("Looking up username:", username);
+        console.log("Using REGISTRY_ID:", REGISTRY_ID);
 
-        // Call the Move function to get profile ID by username
-        const tx = await suiClient.devInspectTransactionBlock({
-          transactionBlock: {
-            kind: "moveCall",
-            target: `${PACKAGE_ID}::linktree::get_profile_id_by_username`,
-            arguments: [REGISTRY_ID, username],
-          } as any,
-          sender: "0x0000000000000000000000000000000000000000000000000000000000000000",
+        // Check if username exists in registry using dynamic field
+        const registryObj = await suiClient.getObject({
+          id: REGISTRY_ID,
+          options: {
+            showContent: true,
+          },
         });
 
-        console.log("Transaction result:", tx);
+        console.log("Registry object:", registryObj);
 
-        // Parse the returned profile ID
-        if (tx.results && tx.results[0]?.returnValues) {
-          const profileId = tx.results[0].returnValues[0][0];
+        // Try to get the dynamic field for this username
+        const dynamicField = await suiClient.getDynamicFieldObject({
+          parentId: REGISTRY_ID,
+          name: {
+            type: "0x1::string::String",
+            value: username,
+          },
+        });
+
+        console.log("Dynamic field result:", dynamicField);
+
+        // Parse the profile ID from dynamic field
+        if (dynamicField.data?.content && 'fields' in dynamicField.data.content) {
+          const dfFields = dynamicField.data.content.fields as any;
+          const profileId = dfFields.value;
+          
+          console.log("Profile ID from dynamic field:", profileId);
           
           // Fetch the profile object
           const profileObj = await suiClient.getObject({
-            id: profileId as any,
+            id: profileId,
             options: {
               showContent: true,
             },
           });
+
+          console.log("Profile object:", profileObj);
 
           if (profileObj.data?.content && 'fields' in profileObj.data.content) {
             const fields = profileObj.data.content.fields as any;
