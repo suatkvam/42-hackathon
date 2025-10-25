@@ -752,7 +752,7 @@ export default function ProfileDashboard() {
             zIndex: 2000,
             padding: "20px",
           }}
-          onClick={() => !changingUsername && setShowChangeUsername(false)}
+          onClick={() => setShowChangeUsername(false)}
         >
           <div
             style={{
@@ -849,7 +849,7 @@ export default function ProfileDashboard() {
             zIndex: 2000,
             padding: "20px",
           }}
-          onClick={() => !deletingAccount && setShowDeleteAccount(false)}
+          onClick={() => setShowDeleteAccount(false)}
         >
           <div
             style={{
