@@ -41,6 +41,9 @@ export default function ProfileDashboard() {
   const [editBio, setEditBio] = useState("");
   const [editAvatar, setEditAvatar] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
+  const [showEditLink, setShowEditLink] = useState(false);
+  const [editingLink, setEditingLink] = useState<{oldLabel: string; label: string; url: string} | null>(null);
+  const [savingLink, setSavingLink] = useState(false);
 
   // Redirect if not connected
   useEffect(() => {
@@ -225,6 +228,47 @@ export default function ProfileDashboard() {
     setEditBio(userProfile?.bio || "");
     setEditAvatar(userProfile?.avatar || "");
     setShowEditProfile(true);
+  };
+
+  const handleEditLink = (label: string, url: string) => {
+    setEditingLink({ oldLabel: label, label, url });
+    setShowEditLink(true);
+  };
+
+  const handleSaveLink = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profileObjectId || !editingLink) return;
+
+    setSavingLink(true);
+    const tx = new Transaction();
+    tx.setGasBudget(10000000);
+    tx.moveCall({
+      target: `${PACKAGE_ID}::${MODULE_NAME}::update_link`,
+      arguments: [
+        tx.object(profileObjectId),
+        tx.pure.string(editingLink.oldLabel),
+        tx.pure.string(editingLink.label),
+        tx.pure.string(editingLink.url),
+      ],
+    });
+
+    signAndExecute(
+      { transaction: tx },
+      {
+        onSuccess: () => {
+          alert("Link updated successfully!");
+          setShowEditLink(false);
+          setEditingLink(null);
+          setSavingLink(false);
+          setTimeout(() => window.location.reload(), 500);
+        },
+        onError: (error) => {
+          console.error("Failed to update link:", error);
+          alert("Failed to update link: " + error.message);
+          setSavingLink(false);
+        },
+      }
+    );
   };
 
   const handleSaveProfile = async (e: React.FormEvent) => {
@@ -585,6 +629,7 @@ export default function ProfileDashboard() {
                       key={index}
                       label={link.key || `Link ${index + 1}`}
                       url={link.value || "#"}
+                      onEdit={() => handleEditLink(link.key, link.value)}
                       onDelete={() => handleDeleteLink(link.key)}
                       deleting={deletingLink === link.key}
                     />
@@ -1024,6 +1069,126 @@ export default function ProfileDashboard() {
         </div>
       )}
 
+      {/* Edit Link Modal */}
+      {showEditLink && editingLink && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.7)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 2000,
+            padding: "20px",
+          }}
+          onClick={() => !savingLink && setShowEditLink(false)}
+        >
+          <div
+            style={{
+              backgroundColor: currentTheme.colors.card,
+              borderRadius: "15px",
+              padding: "30px",
+              width: "100%",
+              maxWidth: "500px",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 style={{ fontSize: "24px", fontWeight: "bold", color: currentTheme.colors.text, marginTop: 0 }}>
+              ✏️ Edit Link
+            </h2>
+
+            <form onSubmit={handleSaveLink}>
+              <div style={{ marginBottom: "15px" }}>
+                <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold", fontSize: "14px", color: currentTheme.colors.text }}>
+                  Label
+                </label>
+                <input
+                  type="text"
+                  value={editingLink.label}
+                  onChange={(e) => setEditingLink({ ...editingLink, label: e.target.value })}
+                  required
+                  disabled={savingLink}
+                  placeholder="e.g., GitHub, Twitter"
+                  style={{
+                    width: "100%",
+                    padding: "12px",
+                    borderRadius: "8px",
+                    border: `1px solid ${currentTheme.colors.border}`,
+                    fontSize: "14px",
+                    boxSizing: "border-box",
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: "20px" }}>
+                <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold", fontSize: "14px", color: currentTheme.colors.text }}>
+                  URL
+                </label>
+                <input
+                  type="url"
+                  value={editingLink.url}
+                  onChange={(e) => setEditingLink({ ...editingLink, url: e.target.value })}
+                  required
+                  disabled={savingLink}
+                  placeholder="https://..."
+                  style={{
+                    width: "100%",
+                    padding: "12px",
+                    borderRadius: "8px",
+                    border: `1px solid ${currentTheme.colors.border}`,
+                    fontSize: "14px",
+                    boxSizing: "border-box",
+                  }}
+                />
+              </div>
+
+              <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditLink(false);
+                    setEditingLink(null);
+                  }}
+                  disabled={savingLink}
+                  style={{
+                    padding: "10px 20px",
+                    borderRadius: "8px",
+                    border: `1px solid ${currentTheme.colors.border}`,
+                    backgroundColor: currentTheme.colors.card,
+                    color: currentTheme.colors.text,
+                    cursor: savingLink ? "not-allowed" : "pointer",
+                    fontSize: "14px",
+                    fontWeight: "600",
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingLink}
+                  style={{
+                    padding: "10px 20px",
+                    borderRadius: "8px",
+                    border: "none",
+                    backgroundColor: savingLink ? "#ccc" : currentTheme.colors.primary,
+                    color: "white",
+                    cursor: savingLink ? "not-allowed" : "pointer",
+                    fontSize: "14px",
+                    fontWeight: "600",
+                  }}
+                >
+                  {savingLink ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Edit Profile Modal */}
       {showEditProfile && (
         <div
@@ -1427,7 +1592,7 @@ function Button({
   );
 }
 
-function LinkCard({ label, url, onDelete, deleting }: { label: string; url: string; onDelete: () => void; deleting?: boolean }) {
+function LinkCard({ label, url, onEdit, onDelete, deleting }: { label: string; url: string; onEdit: () => void; onDelete: () => void; deleting?: boolean }) {
   return (
     <Card>
       <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
@@ -1441,7 +1606,7 @@ function LinkCard({ label, url, onDelete, deleting }: { label: string; url: stri
           </p>
         </div>
         <div style={{ display: "flex", gap: "8px" }}>
-          <IconButton icon="✏️" onClick={() => alert("Edit coming soon!")} />
+          <IconButton icon="✏️" onClick={onEdit} />
           <IconButton icon="📊" onClick={() => alert("Analytics coming soon!")} />
           <IconButton 
             icon={deleting ? "⏳" : "🗑️"} 
