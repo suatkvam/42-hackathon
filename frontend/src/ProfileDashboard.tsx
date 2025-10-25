@@ -209,12 +209,15 @@ export default function ProfileDashboard() {
       alert("First username change is free! Subsequent changes will cost 1 SUI.");
     }
 
+    // İlk değişiklik için None, sonraki değişiklikler için payment coin gönder
+    // Şimdilik None gönderiyoruz (bedava değişiklik)
     tx.moveCall({
       target: `${PACKAGE_ID}::${MODULE_NAME}::change_username`,
       arguments: [
         tx.object(REGISTRY_ID),
         tx.object(profileObjectId),
         tx.pure.string(newUsername),
+        tx.pure.option('0x2::coin::Coin<0x2::sui::SUI>', null), // None for free change
       ],
     });
 
