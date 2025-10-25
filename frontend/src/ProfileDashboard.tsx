@@ -36,6 +36,11 @@ export default function ProfileDashboard() {
   const [showDeleteAccount, setShowDeleteAccount] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [deletingLink, setDeletingLink] = useState<string | null>(null);
+  const [showEditProfile, setShowEditProfile] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editBio, setEditBio] = useState("");
+  const [editAvatar, setEditAvatar] = useState("");
+  const [savingProfile, setSavingProfile] = useState(false);
 
   // Redirect if not connected
   useEffect(() => {
@@ -213,6 +218,49 @@ export default function ProfileDashboard() {
   const copyProfileUrl = () => {
     navigator.clipboard.writeText(getProfileUrl());
     alert("Profile URL copied!");
+  };
+
+  const handleEditProfile = () => {
+    setEditName(userProfile?.name || "");
+    setEditBio(userProfile?.bio || "");
+    setEditAvatar(userProfile?.avatar || "");
+    setShowEditProfile(true);
+  };
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profileObjectId || !userProfile) return;
+
+    setSavingProfile(true);
+    const tx = new Transaction();
+    tx.setGasBudget(10000000);
+    tx.moveCall({
+      target: `${PACKAGE_ID}::${MODULE_NAME}::update_profile`,
+      arguments: [
+        tx.object(profileObjectId),
+        tx.pure.string(editName),
+        tx.pure.string(editBio),
+        tx.pure.string(editAvatar),
+        tx.pure.string(userProfile.theme || "default"),
+      ],
+    });
+
+    signAndExecute(
+      { transaction: tx },
+      {
+        onSuccess: () => {
+          alert("Profile updated successfully!");
+          setShowEditProfile(false);
+          setSavingProfile(false);
+          setTimeout(() => window.location.reload(), 500);
+        },
+        onError: (error) => {
+          console.error("Failed to update profile:", error);
+          alert("Failed to update profile: " + error.message);
+          setSavingProfile(false);
+        },
+      }
+    );
   };
 
   const handleThemeChange = async (themeName: string) => {
@@ -481,7 +529,7 @@ export default function ProfileDashboard() {
                       {userProfile?.bio || "Add bio"}
                     </p>
                   </div>
-                  <Button variant="secondary" size="small">
+                  <Button variant="secondary" size="small" onClick={handleEditProfile}>
                     ✏️ Edit
                   </Button>
                 </div>
@@ -972,6 +1020,142 @@ export default function ProfileDashboard() {
                 {deletingAccount ? "Deleting..." : "Permanently Delete Account"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Profile Modal */}
+      {showEditProfile && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.7)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 2000,
+            padding: "20px",
+          }}
+          onClick={() => !savingProfile && setShowEditProfile(false)}
+        >
+          <div
+            style={{
+              backgroundColor: currentTheme.colors.card,
+              borderRadius: "15px",
+              padding: "30px",
+              width: "100%",
+              maxWidth: "500px",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 style={{ fontSize: "24px", fontWeight: "bold", color: currentTheme.colors.text, marginTop: 0 }}>
+              ✏️ Edit Profile
+            </h2>
+
+            <form onSubmit={handleSaveProfile}>
+              <div style={{ marginBottom: "15px" }}>
+                <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold", fontSize: "14px", color: currentTheme.colors.text }}>
+                  Display Name
+                </label>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  required
+                  disabled={savingProfile}
+                  style={{
+                    width: "100%",
+                    padding: "12px",
+                    borderRadius: "8px",
+                    border: `1px solid ${currentTheme.colors.border}`,
+                    fontSize: "14px",
+                    boxSizing: "border-box",
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: "15px" }}>
+                <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold", fontSize: "14px", color: currentTheme.colors.text }}>
+                  Bio
+                </label>
+                <textarea
+                  value={editBio}
+                  onChange={(e) => setEditBio(e.target.value)}
+                  disabled={savingProfile}
+                  style={{
+                    width: "100%",
+                    padding: "12px",
+                    borderRadius: "8px",
+                    border: `1px solid ${currentTheme.colors.border}`,
+                    fontSize: "14px",
+                    minHeight: "100px",
+                    boxSizing: "border-box",
+                    resize: "vertical",
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: "20px" }}>
+                <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold", fontSize: "14px", color: currentTheme.colors.text }}>
+                  Avatar (Blob ID)
+                </label>
+                <input
+                  type="text"
+                  value={editAvatar}
+                  onChange={(e) => setEditAvatar(e.target.value)}
+                  disabled={savingProfile}
+                  placeholder="Enter Walrus blob ID or leave empty"
+                  style={{
+                    width: "100%",
+                    padding: "12px",
+                    borderRadius: "8px",
+                    border: `1px solid ${currentTheme.colors.border}`,
+                    fontSize: "14px",
+                    boxSizing: "border-box",
+                  }}
+                />
+              </div>
+
+              <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
+                <button
+                  type="button"
+                  onClick={() => setShowEditProfile(false)}
+                  disabled={savingProfile}
+                  style={{
+                    padding: "10px 20px",
+                    borderRadius: "8px",
+                    border: `1px solid ${currentTheme.colors.border}`,
+                    backgroundColor: currentTheme.colors.card,
+                    color: currentTheme.colors.text,
+                    cursor: savingProfile ? "not-allowed" : "pointer",
+                    fontSize: "14px",
+                    fontWeight: "600",
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingProfile}
+                  style={{
+                    padding: "10px 20px",
+                    borderRadius: "8px",
+                    border: "none",
+                    backgroundColor: savingProfile ? "#ccc" : currentTheme.colors.primary,
+                    color: "white",
+                    cursor: savingProfile ? "not-allowed" : "pointer",
+                    fontSize: "14px",
+                    fontWeight: "600",
+                  }}
+                >
+                  {savingProfile ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
