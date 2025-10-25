@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import LandingPage from "./LandingPage";
 import ProfilePage from "./ProfilePage";
 import ProfileDashboard from "./ProfileDashboard";
-import PublicProfile from "./PublicProfile";
+import PublicProfileNew from "./PublicProfileNew";
 import VaultManager from "./VaultManager";
 
 export default function App() {
@@ -13,7 +13,7 @@ export default function App() {
         <Route path="/dashboard" element={<ProfileDashboard />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/vault" element={<VaultManager />} />
-        <Route path="/:username" element={<PublicProfile />} />
+        <Route path="/:username" element={<PublicProfileNew />} />
       </Routes>
     </BrowserRouter>
   );

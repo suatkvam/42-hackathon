@@ -1,5 +1,8 @@
 import { ConnectButton, useCurrentAccount } from "@mysten/dapp-kit";
 import { useNavigate } from "react-router-dom";
+import { getTheme } from "./themes";
+
+const theme = getTheme("default");
 
 export default function LandingPage() {
   const account = useCurrentAccount();
