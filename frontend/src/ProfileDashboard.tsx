@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useCurrentAccount, useSuiClient, useSignAndExecuteTransaction } from "@mysten/dapp-kit";
 import { useNavigate } from "react-router-dom";
 import { Transaction } from "@mysten/sui/transactions";
+import { QRCodeSVG } from "qrcode.react";
 import CreateProfileSimple from "./CreateProfileSimple";
 import { getWalrusImageUrl } from "./walrusService";
 import { PACKAGE_ID, MODULE_NAME } from "./constants";
@@ -22,6 +23,7 @@ export default function ProfileDashboard() {
   const [newLinkUrl, setNewLinkUrl] = useState("");
   const [addingLink, setAddingLink] = useState(false);
   const [showThemeModal, setShowThemeModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
   const [currentTheme, setCurrentTheme] = useState<Theme>(getTheme("default"));
   const [savingTheme, setSavingTheme] = useState(false);
 
@@ -111,9 +113,12 @@ export default function ProfileDashboard() {
     );
   };
 
+  const getProfileUrl = () => {
+    return `${window.location.origin}/${userProfile?.username || 'profile'}`;
+  };
+
   const copyProfileUrl = () => {
-    const url = `${window.location.origin}/${userProfile?.username || 'profile'}`;
-    navigator.clipboard.writeText(url);
+    navigator.clipboard.writeText(getProfileUrl());
     alert("Profile URL copied!");
   };
 
@@ -234,7 +239,7 @@ export default function ProfileDashboard() {
               </p>
             </div>
             <div style={{ display: "flex", gap: "10px" }}>
-              <Button onClick={copyProfileUrl} variant="secondary">
+              <Button onClick={() => setShowShareModal(true)} variant="secondary">
                 📋 Share
               </Button>
               <Button onClick={() => window.open(`/${userProfile?.username}`, '_blank')}>
@@ -596,6 +601,162 @@ export default function ProfileDashboard() {
           </div>
         </div>
       )}
+
+      {/* Share Modal with QR Code */}
+      {showShareModal && userProfile && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.7)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 2000,
+            padding: "20px",
+          }}
+          onClick={() => setShowShareModal(false)}
+        >
+          <div
+            style={{
+              backgroundColor: currentTheme.colors.card,
+              borderRadius: "20px",
+              padding: "40px",
+              width: "100%",
+              maxWidth: "500px",
+              textAlign: "center",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 style={{ fontSize: "28px", fontWeight: "bold", color: currentTheme.colors.text, marginTop: 0, marginBottom: "10px" }}>
+              📋 Profil Paylaş
+            </h2>
+            <p style={{ color: currentTheme.colors.textSecondary, marginBottom: "30px", fontSize: "14px" }}>
+              QR kodu tarayın veya linki kopyalayın
+            </p>
+
+            {/* QR Code */}
+            <div style={{
+              backgroundColor: "white",
+              padding: "20px",
+              borderRadius: "16px",
+              display: "inline-block",
+              marginBottom: "30px",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
+            }}>
+              <QRCodeSVG
+                value={getProfileUrl()}
+                size={256}
+                level="H"
+                includeMargin
+                fgColor={currentTheme.colors.primary}
+              />
+            </div>
+
+            {/* Username */}
+            <div style={{
+              fontSize: "24px",
+              fontWeight: "bold",
+              color: currentTheme.colors.text,
+              marginBottom: "10px"
+            }}>
+              @{userProfile.username}
+            </div>
+
+            {/* URL */}
+            <div style={{
+              backgroundColor: currentTheme.colors.cardHover,
+              padding: "12px 20px",
+              borderRadius: "12px",
+              marginBottom: "20px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "10px"
+            }}>
+              <code style={{
+                fontSize: "14px",
+                color: currentTheme.colors.textSecondary,
+                flex: 1,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap"
+              }}>
+                {getProfileUrl()}
+              </code>
+              <button
+                onClick={copyProfileUrl}
+                style={{
+                  padding: "8px 16px",
+                  backgroundColor: currentTheme.colors.primary,
+                  color: "white",
+                  border: "none",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  fontSize: "13px",
+                  fontWeight: "600",
+                  flexShrink: 0,
+                  transition: "all 0.2s"
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = currentTheme.colors.primaryHover}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = currentTheme.colors.primary}
+              >
+                📋 Copy
+              </button>
+            </div>
+
+            {/* Social Share Buttons */}
+            <div style={{
+              display: "flex",
+              gap: "10px",
+              justifyContent: "center",
+              marginBottom: "20px"
+            }}>
+              <SocialShareButton
+                icon="🐦"
+                label="Twitter"
+                onClick={() => window.open(`https://twitter.com/intent/tweet?text=Check out my SuiTree profile!&url=${encodeURIComponent(getProfileUrl())}`, '_blank')}
+                theme={currentTheme}
+              />
+              <SocialShareButton
+                icon="📧"
+                label="Email"
+                onClick={() => window.location.href = `mailto:?subject=My SuiTree Profile&body=Check out my profile: ${getProfileUrl()}`}
+                theme={currentTheme}
+              />
+              <SocialShareButton
+                icon="📱"
+                label="WhatsApp"
+                onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent('Check out my SuiTree profile: ' + getProfileUrl())}`, '_blank')}
+                theme={currentTheme}
+              />
+            </div>
+
+            {/* Close Button */}
+            <button
+              onClick={() => setShowShareModal(false)}
+              style={{
+                padding: "12px 32px",
+                backgroundColor: currentTheme.colors.cardHover,
+                color: currentTheme.colors.text,
+                border: `1px solid ${currentTheme.colors.border}`,
+                borderRadius: "12px",
+                cursor: "pointer",
+                fontSize: "15px",
+                fontWeight: "600",
+                transition: "all 0.2s"
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = currentTheme.colors.border}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = currentTheme.colors.cardHover}
+            >
+              Kapat
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -756,6 +917,40 @@ function IconButton({ icon, onClick, danger }: { icon: string; onClick: () => vo
       }}
     >
       {icon}
+    </button>
+  );
+}
+
+function SocialShareButton({ icon, label, onClick, theme }: { icon: string; label: string; onClick: () => void; theme: Theme }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        padding: "12px 20px",
+        backgroundColor: theme.colors.cardHover,
+        color: theme.colors.text,
+        border: `1px solid ${theme.colors.border}`,
+        borderRadius: "10px",
+        cursor: "pointer",
+        fontSize: "14px",
+        fontWeight: "600",
+        display: "flex",
+        alignItems: "center",
+        gap: "8px",
+        transition: "all 0.2s",
+        flexDirection: "column"
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.backgroundColor = theme.colors.border;
+        e.currentTarget.style.transform = "translateY(-2px)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.backgroundColor = theme.colors.cardHover;
+        e.currentTarget.style.transform = "translateY(0)";
+      }}
+    >
+      <span style={{ fontSize: "24px" }}>{icon}</span>
+      <span style={{ fontSize: "12px" }}>{label}</span>
     </button>
   );
 }
