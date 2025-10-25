@@ -1,22 +1,28 @@
 import React, { useState, useEffect } from "react";
-import { useCurrentAccount, useDisconnectWallet, useSuiClient } from "@mysten/dapp-kit";
+import { useCurrentAccount, useDisconnectWallet, useSuiClient, useSignAndExecuteTransaction } from "@mysten/dapp-kit";
 import { useNavigate } from "react-router-dom";
+import { Transaction } from "@mysten/sui/transactions";
 import CreateProfile from "./CreateProfile";
 import { getWalrusImageUrl } from "./walrusService";
-import { PACKAGE_ID } from "./constants";
+import { PACKAGE_ID, MODULE_NAME } from "./constants";
 
 export default function ProfilePage() {
   const account = useCurrentAccount();
   const { mutate: disconnect } = useDisconnectWallet();
+  const { mutate: signAndExecute } = useSignAndExecuteTransaction();
   const suiClient = useSuiClient();
   const navigate = useNavigate();
   
   const [showCreateProfile, setShowCreateProfile] = useState(false);
   const [showDisconnect, setShowDisconnect] = useState(false);
+  const [showAddLink, setShowAddLink] = useState(false);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [profileObjectId, setProfileObjectId] = useState<string>("");
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [profileError, setProfileError] = useState("");
+  const [newLinkLabel, setNewLinkLabel] = useState("");
+  const [newLinkUrl, setNewLinkUrl] = useState("");
+  const [addingLink, setAddingLink] = useState(false);
 
   // Redirect to landing if not connected
   useEffect(() => {
@@ -307,6 +313,34 @@ export default function ProfilePage() {
                 </>
               )}
 
+              {/* Add Link Button */}
+              {isUserProfile && (
+                <button
+                  onClick={() => setShowAddLink(true)}
+                  style={{
+                    width: "100%",
+                    padding: "12px",
+                    marginBottom: "15px",
+                    backgroundColor: "rgba(255,255,255,0.2)",
+                    border: "2px dashed rgba(255,255,255,0.5)",
+                    borderRadius: "10px",
+                    color: "white",
+                    cursor: "pointer",
+                    fontWeight: "bold",
+                    fontSize: "14px",
+                    transition: "all 0.3s",
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.3)";
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.2)";
+                  }}
+                >
+                  ➕ Add Link
+                </button>
+              )}
+
               {/* Links */}
               {!loadingProfile && profile.links && profile.links.length > 0 && profile.links.map((link: any, idx: number) => (
                 <a
@@ -339,6 +373,143 @@ export default function ProfilePage() {
           )}
         </div>
       </div>
+
+      {/* Add Link Modal */}
+      {showAddLink && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.7)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 2000,
+          }}
+          onClick={() => setShowAddLink(false)}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              borderRadius: "15px",
+              padding: "30px",
+              width: "90%",
+              maxWidth: "400px",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 style={{ marginTop: 0, marginBottom: "20px" }}>Add New Link</h2>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                setAddingLink(true);
+
+                const tx = new Transaction();
+                tx.setGasBudget(10000000);
+                tx.moveCall({
+                  target: `${PACKAGE_ID}::${MODULE_NAME}::add_link`,
+                  arguments: [
+                    tx.object(profileObjectId),
+                    tx.pure.string(newLinkLabel),
+                    tx.pure.string(newLinkUrl),
+                  ],
+                });
+
+                signAndExecute(
+                  { transaction: tx },
+                  {
+                    onSuccess: () => {
+                      setShowAddLink(false);
+                      setNewLinkLabel("");
+                      setNewLinkUrl("");
+                      setTimeout(() => window.location.reload(), 500);
+                    },
+                    onError: (error) => {
+                      console.error("Failed to add link:", error);
+                      alert("Failed to add link: " + error.message);
+                      setAddingLink(false);
+                    },
+                  }
+                );
+              }}
+            >
+              <div style={{ marginBottom: "15px" }}>
+                <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>
+                  Label *
+                </label>
+                <input
+                  type="text"
+                  value={newLinkLabel}
+                  onChange={(e) => setNewLinkLabel(e.target.value)}
+                  required
+                  placeholder="e.g., Twitter, GitHub, Website"
+                  style={{
+                    width: "100%",
+                    padding: "10px",
+                    borderRadius: "5px",
+                    border: "1px solid #ccc",
+                    boxSizing: "border-box",
+                  }}
+                />
+              </div>
+              <div style={{ marginBottom: "20px" }}>
+                <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>
+                  URL *
+                </label>
+                <input
+                  type="url"
+                  value={newLinkUrl}
+                  onChange={(e) => setNewLinkUrl(e.target.value)}
+                  required
+                  placeholder="https://example.com"
+                  style={{
+                    width: "100%",
+                    padding: "10px",
+                    borderRadius: "5px",
+                    border: "1px solid #ccc",
+                    boxSizing: "border-box",
+                  }}
+                />
+              </div>
+              <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
+                <button
+                  type="button"
+                  onClick={() => setShowAddLink(false)}
+                  disabled={addingLink}
+                  style={{
+                    padding: "10px 20px",
+                    backgroundColor: "#ccc",
+                    border: "none",
+                    borderRadius: "5px",
+                    cursor: addingLink ? "not-allowed" : "pointer",
+                    fontWeight: "bold",
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={addingLink}
+                  style={{
+                    padding: "10px 20px",
+                    backgroundColor: addingLink ? "#ccc" : "#c96d37",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "5px",
+                    cursor: addingLink ? "not-allowed" : "pointer",
+                    fontWeight: "bold",
+                  }}
+                >
+                  {addingLink ? "Adding..." : "Add Link"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Create/Edit Profile Modal */}
       {showCreateProfile && (
