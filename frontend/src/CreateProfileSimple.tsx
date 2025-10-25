@@ -152,7 +152,7 @@ export default function CreateProfileSimple({ onClose, onSuccess }: CreateProfil
           {/* Username */}
           <div>
             <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold", fontSize: "14px" }}>
-              Username * <span style={{ fontSize: "12px", color: "#666" }}>(cannot be changed)</span>
+              Username *
             </label>
             <input
               type="text"
@@ -403,7 +403,7 @@ export default function CreateProfileSimple({ onClose, onSuccess }: CreateProfil
                 fontWeight: "bold",
               }}
             >
-              İptal
+              Cancel
             </button>
             <button
               type="submit"
