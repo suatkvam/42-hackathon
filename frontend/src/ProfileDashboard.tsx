@@ -25,7 +25,7 @@ export default function ProfileDashboard() {
   const [showThemeModal, setShowThemeModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [currentTheme, setCurrentTheme] = useState<Theme>(() => {
-    // Kaydedilmiş temayı yükle
+    // Load saved theme
     const savedTheme = localStorage.getItem("suitree_theme");
     return getTheme(savedTheme || "default");
   });
@@ -93,7 +93,7 @@ export default function ProfileDashboard() {
             theme: themeName,
             username_change_count: fields.username_change_count || 0,
           });
-          // Kullanıcının temasını uygula ve kaydet
+          // Apply and save user's theme
           setCurrentTheme(getTheme(themeName));
           localStorage.setItem("suitree_theme", themeName);
         } else {
@@ -239,7 +239,7 @@ export default function ProfileDashboard() {
           const newTheme = getTheme(themeName);
           setCurrentTheme(newTheme);
           setUserProfile({ ...userProfile, theme: themeName });
-          // Temayı localStorage'a kaydet
+          // Save theme to localStorage
           localStorage.setItem("suitree_theme", themeName);
           setShowThemeModal(false);
           setSavingTheme(false);
@@ -711,10 +711,10 @@ export default function ProfileDashboard() {
             onClick={(e) => e.stopPropagation()}
           >
             <h2 style={{ fontSize: "24px", fontWeight: "bold", color: currentTheme.colors.text, marginTop: 0 }}>
-              🎨 Tema Seç
+              🎨 Choose Theme
             </h2>
             <p style={{ color: currentTheme.colors.textSecondary, marginBottom: "20px" }}>
-              Dashboard'unuzu kişisleştirin
+              Customize your dashboard
             </p>
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: "15px" }}>
@@ -796,7 +796,7 @@ export default function ProfileDashboard() {
                   fontWeight: "600",
                 }}
               >
-                Kapat
+                Close
               </button>
             </div>
           </div>

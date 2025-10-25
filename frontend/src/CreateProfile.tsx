@@ -73,7 +73,7 @@ export default function CreateProfile({ onClose, onSuccess, isEditing = false, p
       setPreviewUrl(getWalrusImageUrl(uploadedBlobId));
     } catch (err: any) {
       console.error("Upload error:", err);
-      setError("⚠️ Walrus testnet geçici olarak kullanılamıyor. Alternatif seçenekler: 1) Varsayılan avatar seçin, 2) Walrus CLI ile yükleyip blob ID girin, 3) Walrus olmadan devam edin.");
+      setError("⚠️ Walrus testnet is temporarily unavailable. Alternative options: 1) Select default avatar, 2) Upload with Walrus CLI and enter blob ID, 3) Continue without Walrus.");
       // Keep local preview
     } finally {
       setUploading(false);

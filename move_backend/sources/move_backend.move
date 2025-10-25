@@ -5,13 +5,13 @@ module move_backend::linktree {
     use sui::coin::{Self, Coin};
     use sui::sui::SUI;
     
-    // YENİ V2 İmportları:
+    // NEW V2 Imports:
     use sui::dynamic_field as df; 
     use sui::transfer::share_object; 
 
-    // --- Structs (Depolama Yapısı AYNEN KORUNDU) ---
+    // --- Structs (Storage Structure KEPT AS IS) ---
 
-    // V1'deki gibi kalmalı, depolama yapısını bozmayalım
+    // Should remain as in V1, don't break storage structure
     public struct LinkTreeProfile has key, store {
         id: UID,
         owner: address,
@@ -21,26 +21,26 @@ module move_backend::linktree {
         blob_id: String,
         links: VecMap<String, String>,
         theme: String,
-        username_change_count: u64  // Kaç kez username değiştirildi
+        username_change_count: u64  // How many times username changed
     }
 
-    // YENİ: ProfileRegistry objesi eklendi
+    // NEW: ProfileRegistry object added
     public struct ProfileRegistry has key, store {
         id: UID
     }
 
-    // --- Hata Kodları ---
+    // --- Error Codes ---
     const ENotOwner: u64 = 0;
     const EReservedUsername: u64 = 1;
     const EUsernameAlreadyTaken: u64 = 2;
     const EInsufficientPayment: u64 = 3;
 
-    // --- Sabitler ---
-    const USERNAME_CHANGE_FEE: u64 = 1_000_000_000; // 1 SUI (sonraki değişiklikler için)
+    // --- Constants ---
+    const USERNAME_CHANGE_FEE: u64 = 1_000_000_000; // 1 SUI (for subsequent changes)
 
-    // --- Fonksiyonlar (V2) ---
+    // --- Functions (V2) ---
 
-    // 1. REGISTRY OLUŞTURMA (YENİ)
+    // 1. CREATE REGISTRY (NEW)
     public fun create_registry(ctx: &mut TxContext) {
         let registry = ProfileRegistry {
             id: object::new(ctx)
@@ -48,7 +48,7 @@ module move_backend::linktree {
         share_object(registry);
     }
 
-    // 2. PROFİL OLUŞTURMA (ORIGINAL V1 - DEPRECATED)
+    // 2. CREATE PROFILE (ORIGINAL V1 - DEPRECATED)
     #[allow(lint(self_transfer))]
     public fun create_profile(
         name: String,
@@ -71,7 +71,7 @@ module move_backend::linktree {
         transfer::transfer(profile, tx_context::sender(ctx));
     }
 
-    // 2b. PROFİL OLUŞTURMA V2 (YENİ - REGISTRY İLE)
+    // 2b. CREATE PROFILE V2 (NEW - WITH REGISTRY)
     #[allow(lint(self_transfer))]
     public fun create_profile_v2(
         registry: &mut ProfileRegistry,
@@ -82,10 +82,10 @@ module move_backend::linktree {
         theme: String,
         ctx: &mut TxContext
     ) {
-        // Reserved username kontrolü
+        // Reserved username check
         assert!(!is_reserved_username(&username), EReservedUsername);
         
-        // Username daha önce alınmış mı kontrolü
+        // Check if username was already taken
         assert!(!username_exists(registry, username), EUsernameAlreadyTaken);
 
         let profile = LinkTreeProfile {
@@ -100,14 +100,14 @@ module move_backend::linktree {
             username_change_count: 0
         };
 
-        // Dinamik Alan Ekleme
+        // Add Dynamic Field
         let profile_id = object::uid_to_inner(&profile.id);
         df::add(&mut registry.id, username, profile_id); 
 
         transfer::transfer(profile, tx_context::sender(ctx));
     }
 
-    // 3. PROFİL GÜNCELLEME (YENİ)
+    // 3. UPDATE PROFILE (NEW)
     public entry fun update_profile(
         profile: &mut LinkTreeProfile,
         name: String,
@@ -123,7 +123,7 @@ module move_backend::linktree {
         profile.theme = theme;
     }
 
-    // 4. PROFİL SİLME (YENİ - REGISTRY'DEN DE SİLER)
+    // 4. DELETE PROFILE (NEW - ALSO DELETES FROM REGISTRY)
     public entry fun delete_profile(
         registry: &mut ProfileRegistry,
         profile: LinkTreeProfile,
@@ -132,7 +132,7 @@ module move_backend::linktree {
         let LinkTreeProfile { id, owner, username, name: _, bio: _, blob_id: _, links: _, theme: _, username_change_count: _ } = profile;
         assert!(owner == tx_context::sender(ctx), ENotOwner);
         
-        // Registry'den username'i sil
+        // Remove username from registry
         if (df::exists_<String>(&registry.id, username)) {
             df::remove<String, ID>(&mut registry.id, username);
         };
@@ -140,7 +140,7 @@ module move_backend::linktree {
         object::delete(id);
     }
 
-    // 5. LINK EKLEME (DEĞİŞMEDİ)
+    // 5. ADD LINK (UNCHANGED)
     public entry fun add_link(
         profile: &mut LinkTreeProfile,
         label: String,
@@ -151,7 +151,7 @@ module move_backend::linktree {
         vec_map::insert(&mut profile.links, label, url);
     }
 
-    // 5b. LINK SİLME (YENİ)
+    // 5b. REMOVE LINK (NEW)
     public entry fun remove_link(
         profile: &mut LinkTreeProfile,
         label: String,
@@ -161,7 +161,7 @@ module move_backend::linktree {
         let (_key, _value) = vec_map::remove(&mut profile.links, &label);
     }
 
-    // 5c. LINK GÜNCELLEME (YENİ)
+    // 5c. UPDATE LINK (NEW)
     public entry fun update_link(
         profile: &mut LinkTreeProfile,
         old_label: String,
@@ -170,13 +170,13 @@ module move_backend::linktree {
         ctx: &mut TxContext
     ) {
         assert!(profile.owner == tx_context::sender(ctx), ENotOwner);
-        // Eski linki sil
+        // Remove old link
         let (_key, _value) = vec_map::remove(&mut profile.links, &old_label);
-        // Yeni linki ekle
+        // Add new link
         vec_map::insert(&mut profile.links, new_label, new_url);
     }
 
-    // 6. USERNAME DEĞİŞTİRME (YENİ - BASİTLEŞTİRİLMİŞ)
+    // 6. CHANGE USERNAME (NEW - SIMPLIFIED)
     public entry fun change_username(
         registry: &mut ProfileRegistry,
         profile: &mut LinkTreeProfile,
@@ -185,27 +185,27 @@ module move_backend::linktree {
     ) {
         assert!(profile.owner == tx_context::sender(ctx), ENotOwner);
         
-        // Reserved username kontrolü
+        // Reserved username check
         assert!(!is_reserved_username(&new_username), EReservedUsername);
         
-        // Yeni username daha önce alınmış mı kontrolü
+        // Check if new username was already taken
         assert!(!username_exists(registry, new_username), EUsernameAlreadyTaken);
         
-        // Eski username'i registry'den sil
+        // Remove old username from registry
         if (df::exists_<String>(&registry.id, profile.username)) {
             df::remove<String, ID>(&mut registry.id, profile.username);
         };
         
-        // Yeni username'i registry'ye ekle
+        // Add new username to registry
         let profile_id = object::uid_to_inner(&profile.id);
         df::add(&mut registry.id, new_username, profile_id);
         
-        // Profile'daki username'i güncelle
+        // Update username in profile
         profile.username = new_username;
         profile.username_change_count = profile.username_change_count + 1;
     }
 
-    // 7. OKUMA FONKSİYONLARI (EKLENDİ)
+    // 7. READ FUNCTIONS (ADDED)
     public fun get_profile_id_by_username(
         registry: &ProfileRegistry, 
         username: String
@@ -220,7 +220,7 @@ module move_backend::linktree {
         df::exists_<String>(&registry.id, username)
     }
 
-    // Reserved username kontrolü
+    // Reserved username check
     fun is_reserved_username(username: &String): bool {
         let reserved = vector[
             std::string::utf8(b"dashboard"),

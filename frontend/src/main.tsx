@@ -2,9 +2,9 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 
-// 🧩 dApp Kit provider'larını import et
+// 🧩 Import dApp Kit providers
 import { SuiClientProvider, WalletProvider, createNetworkConfig } from "@mysten/dapp-kit";
-import "@mysten/dapp-kit/dist/index.css"; // stil dosyası
+import "@mysten/dapp-kit/dist/index.css"; // style file
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 // 🧠 Sui testnet config

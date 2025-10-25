@@ -21,7 +21,7 @@ export default function VaultManager() {
   // Validate configuration on mount
   useEffect(() => {
     if (!validateTuskyConfig()) {
-      setError("Tusky API anahtarı veya Vault ID yapılandırılmamış");
+      setError("Tusky API key or Vault ID is not configured");
     } else {
       loadAssets();
     }
@@ -34,16 +34,16 @@ export default function VaultManager() {
       const fetchedAssets = await getVaultAssets();
       setAssets(fetchedAssets);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Bilinmeyen hata";
+      const errorMessage = err instanceof Error ? err.message : "Unknown error";
       
       // Check if it's a 404 error (API not available)
       if (errorMessage.includes("404")) {
         setError(
-          "⚠️ Tusky API'sine erişilemiyor (404). Tusky'nin public API'si henüz tam olarak hazır olmayabilir. " +
-          "Lütfen https://app.tusky.io adresinden doğrudan vault'unuza erişin ve asset'lerinizi oradan yönetin."
+          "⚠️ Cannot access Tusky API (404). Tusky's public API may not be fully ready yet. " +
+          "Please access your vault directly from https://app.tusky.io and manage your assets there."
         );
       } else {
-        setError(`Asset'ler yüklenemedi: ${errorMessage}`);
+        setError(`Failed to load assets: ${errorMessage}`);
       }
     } finally {
       setLoading(false);
@@ -56,7 +56,7 @@ export default function VaultManager() {
 
     // Validate file type
     if (!file.type.startsWith("image/")) {
-      setError("Lütfen sadece resim dosyası yükleyin");
+      setError("Please upload only image files");
       return;
     }
 
@@ -69,14 +69,14 @@ export default function VaultManager() {
       // Reset file input
       event.target.value = "";
     } catch (err) {
-      setError(`Yükleme başarısız: ${err instanceof Error ? err.message : "Bilinmeyen hata"}`);
+      setError(`Upload failed: ${err instanceof Error ? err.message : "Unknown error"}`);
     } finally {
       setUploading(false);
     }
   };
 
   const handleDeleteAsset = async (assetId: string) => {
-    if (!confirm("Bu asset'i silmek istediğinizden emin misiniz?")) return;
+    if (!confirm("Are you sure you want to delete this asset?")) return;
 
     try {
       setError(null);
@@ -86,7 +86,7 @@ export default function VaultManager() {
         setSelectedAsset(null);
       }
     } catch (err) {
-      setError(`Silme başarısız: ${err instanceof Error ? err.message : "Bilinmeyen hata"}`);
+      setError(`Delete failed: ${err instanceof Error ? err.message : "Unknown error"}`);
     }
   };
 
@@ -94,19 +94,19 @@ export default function VaultManager() {
     if (!selectedAsset) return;
     
     if (!nftMetadata.name.trim()) {
-      setError("Lütfen NFT için bir isim girin");
+      setError("Please enter a name for the NFT");
       return;
     }
 
     try {
       setError(null);
       await mintNFTFromAsset(selectedAsset.id, nftMetadata);
-      alert("NFT başarıyla mint edildi!");
+      alert("NFT successfully minted!");
       setSelectedAsset(null);
       setNftMetadata({ name: "", description: "" });
     } catch (err) {
       // NFT minting is "coming soon" according to Tusky docs
-      setError(`NFT minting henüz mevcut değil: ${err instanceof Error ? err.message : "Bilinmeyen hata"}`);
+      setError(`NFT minting is not available yet: ${err instanceof Error ? err.message : "Unknown error"}`);
     }
   };
 
@@ -114,15 +114,15 @@ export default function VaultManager() {
     <Box p="4">
       <Flex direction="column" gap="4">
         <Flex justify="between" align="center">
-          <Heading size="6">Tusky Vault Yönetimi</Heading>
+          <Heading size="6">Tusky Vault Management</Heading>
           <Flex gap="2">
             <Button onClick={loadAssets} disabled={loading}>
-              {loading ? "Yükleniyor..." : "Yenile"}
+              {loading ? "Loading..." : "Refresh"}
             </Button>
             <Box>
               <label style={{ cursor: "pointer" }}>
                 <Button disabled={uploading}>
-                  {uploading ? "Yükleniyor..." : "Resim Yükle"}
+                  {uploading ? "Uploading..." : "Upload Image"}
                 </Button>
                 <input
                   type="file"
@@ -145,7 +145,7 @@ export default function VaultManager() {
                     variant="soft"
                     onClick={() => window.open(`https://app.tusky.io/vaults/${import.meta.env.VITE_TUSKY_VAULT_ID}/assets`, "_blank")}
                   >
-                    Tusky App'ı Aç
+                    Open Tusky App
                   </Button>
                 </Box>
               )}
@@ -188,7 +188,7 @@ export default function VaultManager() {
                     variant="soft"
                     onClick={() => setSelectedAsset(asset)}
                   >
-                    NFT Yap
+                    Make NFT
                   </Button>
                   <Button
                     size="1"
@@ -196,7 +196,7 @@ export default function VaultManager() {
                     color="red"
                     onClick={() => handleDeleteAsset(asset.id)}
                   >
-                    Sil
+                    Delete
                   </Button>
                 </Flex>
               </Flex>
@@ -207,7 +207,7 @@ export default function VaultManager() {
         {assets.length === 0 && !loading && (
           <Card>
             <Flex justify="center" align="center" p="8">
-              <Text color="gray">Vault'ta henüz asset yok. Resim yükleyerek başlayın!</Text>
+              <Text color="gray">No assets in vault yet. Start by uploading images!</Text>
             </Flex>
           </Card>
         )}
@@ -216,7 +216,7 @@ export default function VaultManager() {
         {selectedAsset && (
           <Card style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)", zIndex: 1000, minWidth: "400px" }}>
             <Flex direction="column" gap="4" p="4">
-              <Heading size="4">NFT Oluştur</Heading>
+              <Heading size="4">Create NFT</Heading>
               
               <Box>
                 <img
@@ -228,20 +228,20 @@ export default function VaultManager() {
 
               <Flex direction="column" gap="2">
                 <label>
-                  <Text size="2" weight="bold">NFT İsmi *</Text>
+                  <Text size="2" weight="bold">NFT Name *</Text>
                   <TextField.Root
                     value={nftMetadata.name}
                     onChange={(e) => setNftMetadata({ ...nftMetadata, name: e.target.value })}
-                    placeholder="NFT için bir isim girin"
+                    placeholder="Enter a name for the NFT"
                   />
                 </label>
 
                 <label>
-                  <Text size="2" weight="bold">Açıklama</Text>
+                  <Text size="2" weight="bold">Description</Text>
                   <TextField.Root
                     value={nftMetadata.description}
                     onChange={(e) => setNftMetadata({ ...nftMetadata, description: e.target.value })}
-                    placeholder="NFT açıklaması (opsiyonel)"
+                    placeholder="NFT description (optional)"
                   />
                 </label>
               </Flex>
@@ -254,15 +254,15 @@ export default function VaultManager() {
                     setNftMetadata({ name: "", description: "" });
                   }}
                 >
-                  İptal
+                  Cancel
                 </Button>
                 <Button onClick={handleMintNFT}>
-                  NFT Oluştur
+                  Create NFT
                 </Button>
               </Flex>
 
               <Text size="1" color="gray">
-                Not: NFT minting özelliği Tusky'de "coming soon" olarak işaretlenmiş
+                Note: NFT minting feature is marked as "coming soon" in Tusky
               </Text>
             </Flex>
           </Card>
