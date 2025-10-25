@@ -6,13 +6,6 @@ export default function LandingPage() {
   const account = useCurrentAccount();
   const navigate = useNavigate();
 
-  // Redirect to profile if already connected
-  React.useEffect(() => {
-    if (account) {
-      navigate("/profile");
-    }
-  }, [account, navigate]);
-
   return (
     <div
       style={{
@@ -35,7 +28,34 @@ export default function LandingPage() {
         <h1 style={{ color: "white", margin: 0, fontSize: "28px", fontWeight: "bold" }}>
           🌳 SuiTree
         </h1>
-        <ConnectButton />
+        <div style={{ display: "flex", gap: "15px", alignItems: "center" }}>
+          {account && (
+            <button
+              onClick={() => navigate("/profile")}
+              style={{
+                padding: "10px 25px",
+                backgroundColor: "white",
+                color: "#c96d37",
+                border: "none",
+                borderRadius: "8px",
+                cursor: "pointer",
+                fontWeight: "bold",
+                transition: "all 0.3s",
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.backgroundColor = "#ff8b3d";
+                e.currentTarget.style.color = "white";
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.backgroundColor = "white";
+                e.currentTarget.style.color = "#c96d37";
+              }}
+            >
+              My Profile
+            </button>
+          )}
+          <ConnectButton />
+        </div>
       </header>
 
       {/* Hero Section */}
