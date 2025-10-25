@@ -124,7 +124,7 @@ export default function ProfilePage() {
       {
         onSuccess: () => {
           alert("Profile deleted successfully!");
-          window.location.reload();
+          navigate("/");
         },
         onError: (error) => {
           console.error("Failed to delete profile:", error);
