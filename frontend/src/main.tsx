@@ -1,8 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import ProfileView from "./ProfileView";
 
 // 🧩 dApp Kit provider'larını import et
 import { SuiClientProvider, WalletProvider, createNetworkConfig } from "@mysten/dapp-kit";
@@ -21,12 +19,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <QueryClientProvider client={queryClient}>
       <SuiClientProvider networks={networkConfig} defaultNetwork="testnet">
         <WalletProvider autoConnect>
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<App />} />
-              <Route path="/view" element={<ProfileView />} />
-            </Routes>
-          </BrowserRouter>
+          <App />
         </WalletProvider>
       </SuiClientProvider>
     </QueryClientProvider>

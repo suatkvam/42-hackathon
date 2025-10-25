@@ -86,7 +86,33 @@ module move_backend::linktree {
         transfer::transfer(profile, tx_context::sender(ctx));
     }
 
-    // 3. LINK EKLEME (DEĞİŞMEDİ)
+    // 3. PROFİL GÜNCELLEME (YENİ)
+    public fun update_profile(
+        profile: &mut LinkTreeProfile,
+        name: String,
+        bio: String,
+        blob_id: String,
+        theme: String,
+        ctx: &mut TxContext
+    ) {
+        assert!(profile.owner == tx_context::sender(ctx), ENotOwner);
+        profile.name = name;
+        profile.bio = bio;
+        profile.blob_id = blob_id;
+        profile.theme = theme;
+    }
+
+    // 4. PROFİL SİLME (YENİ)
+    public fun delete_profile(
+        profile: LinkTreeProfile,
+        ctx: &mut TxContext
+    ) {
+        let LinkTreeProfile { id, owner, name: _, bio: _, blob_id: _, links: _, theme: _ } = profile;
+        assert!(owner == tx_context::sender(ctx), ENotOwner);
+        object::delete(id);
+    }
+
+    // 5. LINK EKLEME (DEĞİŞMEDİ)
     public fun add_link(
         profile: &mut LinkTreeProfile,
         label: String,
@@ -97,7 +123,7 @@ module move_backend::linktree {
         vec_map::insert(&mut profile.links, label, url);
     }
 
-    // 4. OKUMA FONKSİYONLARI (EKLENDİ)
+    // 6. OKUMA FONKSİYONLARI (EKLENDİ)
     public fun get_profile_id_by_username(
         registry: &ProfileRegistry, 
         username: String
