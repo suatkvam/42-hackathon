@@ -645,6 +645,17 @@ export default function ProfileDashboard() {
                       url={link.value || "#"}
                       onEdit={() => handleEditLink(link.key, link.value)}
                       onDelete={() => handleDeleteLink(link.key)}
+                      onAnalytics={async () => {
+                        if (!isAnalyticsEnabled()) {
+                          alert("Analytics not configured. Please add Supabase credentials to .env file.");
+                          return;
+                        }
+                        setShowAnalytics(true);
+                        setLoadingAnalytics(true);
+                        const stats = await getAnalytics(profileObjectId);
+                        setAnalyticsData(stats);
+                        setLoadingAnalytics(false);
+                      }}
                       deleting={deletingLink === link.key}
                     />
                   ))
@@ -1786,7 +1797,7 @@ function Button({
   );
 }
 
-function LinkCard({ label, url, onEdit, onDelete, deleting }: { label: string; url: string; onEdit: () => void; onDelete: () => void; deleting?: boolean }) {
+function LinkCard({ label, url, onEdit, onDelete, onAnalytics, deleting }: { label: string; url: string; onEdit: () => void; onDelete: () => void; onAnalytics: () => void; deleting?: boolean }) {
   return (
     <Card>
       <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
@@ -1801,17 +1812,7 @@ function LinkCard({ label, url, onEdit, onDelete, deleting }: { label: string; u
         </div>
         <div style={{ display: "flex", gap: "8px" }}>
           <IconButton icon="✏️" onClick={onEdit} />
-          <IconButton icon="📊" onClick={async () => {
-            if (!isAnalyticsEnabled()) {
-              alert("Analytics not configured");
-              return;
-            }
-            setShowAnalytics(true);
-            setLoadingAnalytics(true);
-            const stats = await getAnalytics(profileObjectId);
-            setAnalyticsData(stats);
-            setLoadingAnalytics(false);
-          }} />
+          <IconButton icon="📊" onClick={onAnalytics} />
           <IconButton 
             icon={deleting ? "⏳" : "🗑️"} 
             onClick={onDelete} 
