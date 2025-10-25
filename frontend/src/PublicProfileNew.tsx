@@ -77,7 +77,10 @@ export default function PublicProfileNew() {
               name: fields.name,
               bio: fields.bio,
               avatar: avatarId,
-              links: fields.links || [],
+              links: fields.links?.fields?.contents?.map((item: any) => ({
+                key: item.fields.key,
+                value: item.fields.value,
+              })) || [],
               theme: themeName,
               owner: fields.owner,
             });

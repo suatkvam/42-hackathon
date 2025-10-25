@@ -76,13 +76,24 @@ export default function ProfilePage() {
           // Support both old field name (avatar_cid) and new field name (blob_id)
           const avatarId = fields.blob_id || fields.avatar_cid;
           
+          // Parse VecMap structure for links
+          let parsedLinks = [];
+          if (fields.links?.fields?.contents) {
+            parsedLinks = fields.links.fields.contents.map((item: any) => ({
+              key: item.fields.key,
+              value: item.fields.value,
+            }));
+          } else if (Array.isArray(fields.links)) {
+            parsedLinks = fields.links;
+          }
+          
           setProfileObjectId(profileObj.data.objectId);
           setUserProfile({
             username: fields.username,
             name: fields.name,
             bio: fields.bio,
             avatar: avatarId,
-            links: fields.links || [],
+            links: parsedLinks,
             theme: fields.theme,
           });
         } else {

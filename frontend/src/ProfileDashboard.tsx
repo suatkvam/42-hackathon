@@ -65,13 +65,30 @@ export default function ProfileDashboard() {
         if (profileObj && profileObj.data?.content?.fields) {
           const fields = profileObj.data.content.fields;
           const themeName = fields.theme || "default";
+          
+          // Parse VecMap structure for links
+          console.log("Raw links field:", JSON.stringify(fields.links, null, 2));
+          
+          let parsedLinks = [];
+          if (fields.links?.fields?.contents) {
+            // VecMap structure: { fields: { contents: [{fields: {key: "label", value: "url"}}] } }
+            parsedLinks = fields.links.fields.contents.map((item: any) => ({
+              key: item.fields.key,
+              value: item.fields.value,
+            }));
+          } else if (Array.isArray(fields.links)) {
+            parsedLinks = fields.links;
+          }
+          
+          console.log("Parsed links:", parsedLinks);
+          
           setProfileObjectId(profileObj.data.objectId);
           setUserProfile({
             username: fields.username,
             name: fields.name,
             bio: fields.bio,
             avatar: fields.blob_id || fields.avatar_cid,
-            links: fields.links || [],
+            links: parsedLinks,
             theme: themeName,
             username_change_count: fields.username_change_count || 0,
           });
@@ -93,36 +110,61 @@ export default function ProfileDashboard() {
 
   const handleAddLink = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!profileObjectId) return;
+    if (!profileObjectId) {
+      console.error("No profile object ID found");
+      alert("Error: Profile not loaded");
+      return;
+    }
 
-    setAddingLink(true);
-    const tx = new Transaction();
-    tx.setGasBudget(10000000);
-    tx.moveCall({
-      target: `${PACKAGE_ID}::${MODULE_NAME}::add_link`,
-      arguments: [
-        tx.object(profileObjectId),
-        tx.pure.string(newLinkLabel),
-        tx.pure.string(newLinkUrl),
-      ],
+    console.log("Adding link:", {
+      profileObjectId,
+      label: newLinkLabel,
+      url: newLinkUrl,
+      packageId: PACKAGE_ID,
+      module: MODULE_NAME
     });
 
-    signAndExecute(
-      { transaction: tx },
-      {
-        onSuccess: () => {
-          setShowAddLink(false);
-          setNewLinkLabel("");
-          setNewLinkUrl("");
-          setTimeout(() => window.location.reload(), 500);
-        },
-        onError: (error) => {
-          console.error("Failed to add link:", error);
-          alert("Failed to add link: " + error.message);
-          setAddingLink(false);
-        },
-      }
-    );
+    setAddingLink(true);
+    
+    try {
+      const tx = new Transaction();
+      tx.setGasBudget(10000000);
+      tx.moveCall({
+        target: `${PACKAGE_ID}::${MODULE_NAME}::add_link`,
+        arguments: [
+          tx.object(profileObjectId),
+          tx.pure.string(newLinkLabel),
+          tx.pure.string(newLinkUrl),
+        ],
+      });
+
+      console.log("Transaction created, waiting for signature...");
+
+      signAndExecute(
+        { transaction: tx },
+        {
+          onSuccess: (result) => {
+            console.log("Link added successfully:", result);
+            alert("Link added successfully!");
+            setShowAddLink(false);
+            setNewLinkLabel("");
+            setNewLinkUrl("");
+            setAddingLink(false);
+            setTimeout(() => window.location.reload(), 500);
+          },
+          onError: (error) => {
+            console.error("Failed to add link:", error);
+            console.error("Error details:", JSON.stringify(error, null, 2));
+            alert("Failed to add link: " + (error.message || "Unknown error"));
+            setAddingLink(false);
+          },
+        }
+      );
+    } catch (error: any) {
+      console.error("Exception in handleAddLink:", error);
+      alert("Error: " + (error.message || "Unknown error"));
+      setAddingLink(false);
+    }
   };
 
   const getProfileUrl = () => {
