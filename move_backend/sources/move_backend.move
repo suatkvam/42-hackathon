@@ -151,12 +151,11 @@ module move_backend::linktree {
         vec_map::insert(&mut profile.links, label, url);
     }
 
-    // 6. USERNAME DEĞİŞTİRME (YENİ)
+    // 6. USERNAME DEĞİŞTİRME (YENİ - BASİTLEŞTİRİLMİŞ)
     public entry fun change_username(
         registry: &mut ProfileRegistry,
         profile: &mut LinkTreeProfile,
         new_username: String,
-        payment: Option<Coin<SUI>>,
         ctx: &mut TxContext
     ) {
         assert!(profile.owner == tx_context::sender(ctx), ENotOwner);
@@ -166,21 +165,6 @@ module move_backend::linktree {
         
         // Yeni username daha önce alınmış mı kontrolü
         assert!(!username_exists(registry, new_username), EUsernameAlreadyTaken);
-        
-        // İlk değişiklikten sonra ödeme gerekli
-        if (profile.username_change_count > 0) {
-            assert!(option::is_some(&payment), EInsufficientPayment);
-            let coin = option::destroy_some(payment);
-            assert!(coin::value(&coin) >= USERNAME_CHANGE_FEE, EInsufficientPayment);
-            // Ücreti yak veya hazineye gönder
-            transfer::public_transfer(coin, @0x0); // Yakma
-        } else {
-            // İlk değişiklik bedava, ödeme varsa geri ver
-            if (option::is_some(&payment)) {
-                let coin = option::destroy_some(payment);
-                transfer::public_transfer(coin, tx_context::sender(ctx));
-            };
-        };
         
         // Eski username'i registry'den sil
         if (df::exists_<String>(&registry.id, profile.username)) {

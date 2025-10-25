@@ -193,31 +193,12 @@ export default function ProfileDashboard() {
     const tx = new Transaction();
     tx.setGasBudget(10000000);
     
-    // Payment required after first change
-    const changeCount = userProfile?.username_change_count || 0;
-    
-    if (changeCount > 0) {
-      const confirmPayment = window.confirm(
-        `Changing username requires 1 SUI payment. (Change #${changeCount + 1})\n\nContinue?`
-      );
-      
-      if (!confirmPayment) {
-        setChangingUsername(false);
-        return;
-      }
-    } else {
-      alert("First username change is free! Subsequent changes will cost 1 SUI.");
-    }
-
-    // İlk değişiklik için None, sonraki değişiklikler için payment coin gönder
-    // Şimdilik None gönderiyoruz (bedava değişiklik)
     tx.moveCall({
       target: `${PACKAGE_ID}::${MODULE_NAME}::change_username`,
       arguments: [
         tx.object(REGISTRY_ID),
         tx.object(profileObjectId),
         tx.pure.string(newUsername),
-        tx.pure.option('0x2::coin::Coin<0x2::sui::SUI>', null), // None for free change
       ],
     });
 
@@ -773,8 +754,8 @@ export default function ProfileDashboard() {
             <p style={{ color: currentTheme.colors.textSecondary, marginBottom: "20px", fontSize: "14px" }}>
               Current: <strong>@{userProfile?.username}</strong>
             </p>
-            <p style={{ color: currentTheme.colors.warning, marginBottom: "20px", fontSize: "13px", backgroundColor: "#fff3cd", padding: "10px", borderRadius: "8px" }}>
-              ⚠️ First change is free, subsequent changes cost <strong>1 SUI</strong> each.
+            <p style={{ color: currentTheme.colors.textSecondary, marginBottom: "20px", fontSize: "13px", backgroundColor: "#f0f9ff", padding: "10px", borderRadius: "8px" }}>
+              💡 You can change your username anytime.
             </p>
 
             <form onSubmit={handleChangeUsername}>
