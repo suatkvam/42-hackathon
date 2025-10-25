@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useSuiClient } from "@mysten/dapp-kit";
 import { useParams, useNavigate } from "react-router-dom";
-import { getWalrusImageUrl } from "./walrusService";
+import { getWalrusImageUrl, fetchProfileFromWalrus } from "./walrusService";
 import { PACKAGE_ID, REGISTRY_ID } from "./constants";
 import { getTheme, type Theme } from "./themes";
 import { trackLinkClick } from "./analyticsService";
@@ -75,21 +75,43 @@ export default function PublicProfileNew() {
 
           if (profileObj.data?.content && 'fields' in profileObj.data.content) {
             const fields = profileObj.data.content.fields as any;
-            const avatarId = fields.blob_id || fields.avatar_cid;
+            const contentBlobId = fields.content_blob_id;
             const themeName = fields.theme || "default";
 
-            setProfile({
-              name: fields.name,
-              bio: fields.bio,
-              avatar: avatarId,
-              links: fields.links?.fields?.contents?.map((item: any) => ({
-                key: item.fields.key,
-                value: item.fields.value,
-              })) || [],
-              theme: themeName,
-              owner: fields.owner,
-            });
-            setTheme(getTheme(themeName));
+            try {
+              // Fetch profile content from Walrus
+              const profileContent = await fetchProfileFromWalrus(contentBlobId);
+              console.log("Fetched profile content from Walrus:", profileContent);
+
+              setProfile({
+                name: profileContent.name,
+                bio: profileContent.bio,
+                avatar: profileContent.avatar_blob_id,
+                links: profileContent.links.map(link => ({
+                  key: link.label,
+                  value: link.url,
+                })),
+                theme: themeName,
+                owner: fields.owner,
+              });
+              setTheme(getTheme(themeName));
+            } catch (err) {
+              console.error("Error fetching profile content from Walrus:", err);
+              // Fallback to old structure
+              const avatarId = fields.blob_id || fields.avatar_cid;
+              setProfile({
+                name: fields.name || "User",
+                bio: fields.bio || "",
+                avatar: avatarId,
+                links: fields.links?.fields?.contents?.map((item: any) => ({
+                  key: item.fields.key,
+                  value: item.fields.value,
+                })) || [],
+                theme: themeName,
+                owner: fields.owner,
+              });
+              setTheme(getTheme(themeName));
+            }
           } else {
             setError("Profile not found");
           }

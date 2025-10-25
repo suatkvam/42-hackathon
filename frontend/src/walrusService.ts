@@ -84,3 +84,87 @@ export async function fetchRandomAvatarsFromVault(count: number = 6): Promise<st
   // For now, return placeholder values
   return getRandomAvatarBlobIds().slice(0, count);
 }
+
+/**
+ * Profile data structure stored in Walrus
+ */
+export interface ProfileContent {
+  name: string;
+  bio: string;
+  avatar_blob_id: string;  // Walrus blob ID for avatar image
+  links: Array<{ label: string; url: string }>;
+}
+
+/**
+ * Upload profile JSON data to Walrus
+ * Returns the blob_id for the profile content
+ */
+export async function uploadProfileToWalrus(profileData: ProfileContent): Promise<string> {
+  try {
+    console.log("Uploading profile data to Walrus:", profileData);
+
+    // Convert profile data to JSON blob
+    const jsonBlob = new Blob([JSON.stringify(profileData)], {
+      type: "application/json",
+    });
+
+    const response = await fetch(`${WALRUS_PUBLISHER}/${WALRUS_API_VERSION}/store?epochs=5`, {
+      method: "PUT",
+      body: jsonBlob,
+    });
+
+    console.log("Walrus profile upload response status:", response.status);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Walrus error response:", errorText);
+      throw new Error(`Upload failed: ${response.status} ${response.statusText} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    console.log("Walrus profile response data:", data);
+    
+    // Extract blob_id from response
+    if (data.newlyCreated?.blobObject?.blobId) {
+      console.log("Successfully uploaded profile, blob ID:", data.newlyCreated.blobObject.blobId);
+      return data.newlyCreated.blobObject.blobId;
+    } else if (data.alreadyCertified?.blobId) {
+      console.log("Profile already exists, blob ID:", data.alreadyCertified.blobId);
+      return data.alreadyCertified.blobId;
+    }
+    
+    throw new Error("Unable to extract blob_id from response: " + JSON.stringify(data));
+  } catch (error) {
+    console.error("Walrus profile upload error:", error);
+    throw error;
+  }
+}
+
+/**
+ * Fetch profile JSON data from Walrus
+ * Returns the profile content
+ */
+export async function fetchProfileFromWalrus(blobId: string): Promise<ProfileContent> {
+  try {
+    if (!blobId || blobId.trim() === "") {
+      throw new Error("Empty blob ID provided");
+    }
+
+    console.log("Fetching profile from Walrus:", blobId);
+    const url = `${WALRUS_AGGREGATOR}/${WALRUS_API_VERSION}/${blobId}`;
+    
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch profile: ${response.status} ${response.statusText}`);
+    }
+
+    const profileData: ProfileContent = await response.json();
+    console.log("Fetched profile data:", profileData);
+    
+    return profileData;
+  } catch (error) {
+    console.error("Walrus profile fetch error:", error);
+    throw error;
+  }
+}

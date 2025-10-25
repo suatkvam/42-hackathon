@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useSignAndExecuteTransaction, useSuiClient } from "@mysten/dapp-kit";
 import { Transaction } from "@mysten/sui/transactions";
 import { PACKAGE_ID, MODULE_NAME, REGISTRY_ID } from "./constants";
-import { uploadImageToWalrus, getWalrusImageUrl } from "./walrusService";
+import { uploadImageToWalrus, getWalrusImageUrl, uploadProfileToWalrus, ProfileContent } from "./walrusService";
 import { getTheme, getThemeNames } from "./themes";
 
 interface CreateProfileProps {
@@ -23,7 +23,8 @@ export default function CreateProfile({ onClose, onSuccess, isEditing = false, p
   const [username, setUsername] = useState(existingProfile?.username || "");
   const [name, setName] = useState(existingProfile?.name || "");
   const [bio, setBio] = useState(existingProfile?.bio || "");
-  const [blobId, setBlobId] = useState(existingProfile?.avatar || "");
+  const [avatarBlobId, setAvatarBlobId] = useState(existingProfile?.avatar || "");  // Avatar image blob ID
+  const [links, setLinks] = useState<Array<{ label: string; url: string }>>([]);  // Links array
   const [theme, setTheme] = useState(existingProfile?.theme || "default");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -67,7 +68,7 @@ export default function CreateProfile({ onClose, onSuccess, isEditing = false, p
 
       // Upload to Walrus
       const uploadedBlobId = await uploadImageToWalrus(file);
-      setBlobId(uploadedBlobId);
+      setAvatarBlobId(uploadedBlobId);
       
       // Update preview to Walrus URL
       setPreviewUrl(getWalrusImageUrl(uploadedBlobId));
@@ -92,9 +93,19 @@ export default function CreateProfile({ onClose, onSuccess, isEditing = false, p
     }
 
     try {
+      // Step 1: Upload profile content to Walrus
+      const profileContent: ProfileContent = {
+        name,
+        bio,
+        avatar_blob_id: avatarBlobId,
+        links,
+      };
+
+      const contentBlobId = await uploadProfileToWalrus(profileContent);
+      console.log("Profile content uploaded to Walrus:", contentBlobId);
+
+      // Step 2: Store on blockchain
       const tx = new Transaction();
-      
-      // Set gas budget explicitly to avoid "could not automatically determine a budget" error
       tx.setGasBudget(10000000); // 0.01 SUI
 
       if (isEditing && profileObjectId) {
@@ -103,9 +114,7 @@ export default function CreateProfile({ onClose, onSuccess, isEditing = false, p
           target: `${PACKAGE_ID}::${MODULE_NAME}::update_profile`,
           arguments: [
             tx.object(profileObjectId),
-            tx.pure.string(name),
-            tx.pure.string(bio),
-            tx.pure.string(blobId),
+            tx.pure.string(contentBlobId),
             tx.pure.string(theme),
           ],
         });
@@ -116,9 +125,7 @@ export default function CreateProfile({ onClose, onSuccess, isEditing = false, p
           arguments: [
             tx.object(REGISTRY_ID),
             tx.pure.string(username),
-            tx.pure.string(name),
-            tx.pure.string(bio),
-            tx.pure.string(blobId),
+            tx.pure.string(contentBlobId),
             tx.pure.string(theme),
           ],
         });

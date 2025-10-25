@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Transaction } from "@mysten/sui/transactions";
 import { QRCodeSVG } from "qrcode.react";
 import CreateProfileSimple from "./CreateProfileSimple";
-import { getWalrusImageUrl } from "./walrusService";
+import { getWalrusImageUrl, fetchProfileFromWalrus, uploadProfileToWalrus, ProfileContent } from "./walrusService";
 import { PACKAGE_ID, MODULE_NAME, REGISTRY_ID } from "./constants";
 import { getTheme, getThemeNames, type Theme } from "./themes";
 import { getAnalytics, isAnalyticsEnabled, type AnalyticsStats } from "./analyticsService";
@@ -77,37 +77,46 @@ export default function ProfileDashboard() {
 
         if (profileObj && profileObj.data?.content?.fields) {
           const fields = profileObj.data.content.fields;
+          const contentBlobId = fields.content_blob_id;
           const themeName = fields.theme || "default";
           
-          // Parse VecMap structure for links
-          console.log("Raw links field:", JSON.stringify(fields.links, null, 2));
-          
-          let parsedLinks = [];
-          if (fields.links?.fields?.contents) {
-            // VecMap structure: { fields: { contents: [{fields: {key: "label", value: "url"}}] } }
-            parsedLinks = fields.links.fields.contents.map((item: any) => ({
-              key: item.fields.key,
-              value: item.fields.value,
-            }));
-          } else if (Array.isArray(fields.links)) {
-            parsedLinks = fields.links;
+          // Fetch profile content from Walrus
+          try {
+            const profileContent = await fetchProfileFromWalrus(contentBlobId);
+            console.log("Fetched profile content from Walrus:", profileContent);
+            
+            setProfileObjectId(profileObj.data.objectId);
+            setUserProfile({
+              username: fields.username,
+              name: profileContent.name,
+              bio: profileContent.bio,
+              avatar: profileContent.avatar_blob_id,
+              links: profileContent.links.map(link => ({
+                key: link.label,
+                value: link.url,
+              })),
+              theme: themeName,
+              username_change_count: fields.username_change_count || 0,
+            });
+            // Apply and save user's theme
+            setCurrentTheme(getTheme(themeName));
+            localStorage.setItem("suitree_theme", themeName);
+          } catch (err) {
+            console.error("Error fetching profile content from Walrus:", err);
+            // Fallback to old structure if Walrus fetch fails
+            setProfileObjectId(profileObj.data.objectId);
+            setUserProfile({
+              username: fields.username,
+              name: fields.name || "User",
+              bio: fields.bio || "",
+              avatar: fields.blob_id || "",
+              links: [],
+              theme: themeName,
+              username_change_count: fields.username_change_count || 0,
+            });
+            setCurrentTheme(getTheme(themeName));
+            localStorage.setItem("suitree_theme", themeName);
           }
-          
-          console.log("Parsed links:", parsedLinks);
-          
-          setProfileObjectId(profileObj.data.objectId);
-          setUserProfile({
-            username: fields.username,
-            name: fields.name,
-            bio: fields.bio,
-            avatar: fields.blob_id || fields.avatar_cid,
-            links: parsedLinks,
-            theme: themeName,
-            username_change_count: fields.username_change_count || 0,
-          });
-          // Apply and save user's theme
-          setCurrentTheme(getTheme(themeName));
-          localStorage.setItem("suitree_theme", themeName);
         } else {
           setShowCreateProfile(true);
         }
@@ -122,7 +131,7 @@ export default function ProfileDashboard() {
   }, [account, suiClient]);
 
   const handleDeleteLink = async (label: string) => {
-    if (!profileObjectId) {
+    if (!profileObjectId || !userProfile) {
       alert("Error: Profile not loaded");
       return;
     }
@@ -132,64 +141,86 @@ export default function ProfileDashboard() {
     }
 
     setDeletingLink(label);
-    const tx = new Transaction();
-    tx.setGasBudget(10000000);
-    tx.moveCall({
-      target: `${PACKAGE_ID}::${MODULE_NAME}::remove_link`,
-      arguments: [
-        tx.object(profileObjectId),
-        tx.pure.string(label),
-      ],
-    });
+    
+    try {
+      // Update profile content in Walrus
+      const updatedLinks = userProfile.links.filter((link: any) => link.key !== label);
+      const profileContent: ProfileContent = {
+        name: userProfile.name,
+        bio: userProfile.bio,
+        avatar_blob_id: userProfile.avatar,
+        links: updatedLinks.map((link: any) => ({ label: link.key, url: link.value })),
+      };
 
-    signAndExecute(
-      { transaction: tx },
-      {
-        onSuccess: () => {
-          alert("Link deleted successfully!");
-          setDeletingLink(null);
-          setTimeout(() => window.location.reload(), 500);
-        },
-        onError: (error) => {
-          console.error("Failed to delete link:", error);
-          alert("Failed to delete link: " + error.message);
-          setDeletingLink(null);
-        },
-      }
-    );
+      const contentBlobId = await uploadProfileToWalrus(profileContent);
+
+      // Update on blockchain
+      const tx = new Transaction();
+      tx.setGasBudget(10000000);
+      tx.moveCall({
+        target: `${PACKAGE_ID}::${MODULE_NAME}::update_profile`,
+        arguments: [
+          tx.object(profileObjectId),
+          tx.pure.string(contentBlobId),
+          tx.pure.string(userProfile.theme || "default"),
+        ],
+      });
+
+      signAndExecute(
+        { transaction: tx },
+        {
+          onSuccess: () => {
+            alert("Link deleted successfully!");
+            setDeletingLink(null);
+            setTimeout(() => window.location.reload(), 500);
+          },
+          onError: (error) => {
+            console.error("Failed to delete link:", error);
+            alert("Failed to delete link: " + error.message);
+            setDeletingLink(null);
+          },
+        }
+      );
+    } catch (error: any) {
+      console.error("Error deleting link:", error);
+      alert("Error: " + (error.message || "Unknown error"));
+      setDeletingLink(null);
+    }
   };
 
   const handleAddLink = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!profileObjectId) {
+    if (!profileObjectId || !userProfile) {
       console.error("No profile object ID found");
       alert("Error: Profile not loaded");
       return;
     }
 
-    console.log("Adding link:", {
-      profileObjectId,
-      label: newLinkLabel,
-      url: newLinkUrl,
-      packageId: PACKAGE_ID,
-      module: MODULE_NAME
-    });
-
     setAddingLink(true);
     
     try {
+      // Update profile content in Walrus
+      const updatedLinks = [...userProfile.links, { key: newLinkLabel, value: newLinkUrl }];
+      const profileContent: ProfileContent = {
+        name: userProfile.name,
+        bio: userProfile.bio,
+        avatar_blob_id: userProfile.avatar,
+        links: updatedLinks.map((link: any) => ({ label: link.key, url: link.value })),
+      };
+
+      const contentBlobId = await uploadProfileToWalrus(profileContent);
+
+      // Update on blockchain
       const tx = new Transaction();
       tx.setGasBudget(10000000);
       tx.moveCall({
-        target: `${PACKAGE_ID}::${MODULE_NAME}::add_link`,
+        target: `${PACKAGE_ID}::${MODULE_NAME}::update_profile`,
         arguments: [
           tx.object(profileObjectId),
-          tx.pure.string(newLinkLabel),
-          tx.pure.string(newLinkUrl),
+          tx.pure.string(contentBlobId),
+          tx.pure.string(userProfile.theme || "default"),
         ],
       });
-
-      console.log("Transaction created, waiting for signature...");
 
       signAndExecute(
         { transaction: tx },
@@ -205,7 +236,6 @@ export default function ProfileDashboard() {
           },
           onError: (error) => {
             console.error("Failed to add link:", error);
-            console.error("Error details:", JSON.stringify(error, null, 2));
             alert("Failed to add link: " + (error.message || "Unknown error"));
             setAddingLink(false);
           },
@@ -241,38 +271,60 @@ export default function ProfileDashboard() {
 
   const handleSaveLink = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!profileObjectId || !editingLink) return;
+    if (!profileObjectId || !editingLink || !userProfile) return;
 
     setSavingLink(true);
-    const tx = new Transaction();
-    tx.setGasBudget(10000000);
-    tx.moveCall({
-      target: `${PACKAGE_ID}::${MODULE_NAME}::update_link`,
-      arguments: [
-        tx.object(profileObjectId),
-        tx.pure.string(editingLink.oldLabel),
-        tx.pure.string(editingLink.label),
-        tx.pure.string(editingLink.url),
-      ],
-    });
+    
+    try {
+      // Update profile content in Walrus
+      const updatedLinks = userProfile.links.map((link: any) => 
+        link.key === editingLink.oldLabel 
+          ? { key: editingLink.label, value: editingLink.url }
+          : link
+      );
+      const profileContent: ProfileContent = {
+        name: userProfile.name,
+        bio: userProfile.bio,
+        avatar_blob_id: userProfile.avatar,
+        links: updatedLinks.map((link: any) => ({ label: link.key, url: link.value })),
+      };
 
-    signAndExecute(
-      { transaction: tx },
-      {
-        onSuccess: () => {
-          alert("Link updated successfully!");
-          setShowEditLink(false);
-          setEditingLink(null);
-          setSavingLink(false);
-          setTimeout(() => window.location.reload(), 500);
-        },
-        onError: (error) => {
-          console.error("Failed to update link:", error);
-          alert("Failed to update link: " + error.message);
-          setSavingLink(false);
-        },
-      }
-    );
+      const contentBlobId = await uploadProfileToWalrus(profileContent);
+
+      // Update on blockchain
+      const tx = new Transaction();
+      tx.setGasBudget(10000000);
+      tx.moveCall({
+        target: `${PACKAGE_ID}::${MODULE_NAME}::update_profile`,
+        arguments: [
+          tx.object(profileObjectId),
+          tx.pure.string(contentBlobId),
+          tx.pure.string(userProfile.theme || "default"),
+        ],
+      });
+
+      signAndExecute(
+        { transaction: tx },
+        {
+          onSuccess: () => {
+            alert("Link updated successfully!");
+            setShowEditLink(false);
+            setEditingLink(null);
+            setSavingLink(false);
+            setTimeout(() => window.location.reload(), 500);
+          },
+          onError: (error) => {
+            console.error("Failed to update link:", error);
+            alert("Failed to update link: " + error.message);
+            setSavingLink(false);
+          },
+        }
+      );
+    } catch (error: any) {
+      console.error("Error updating link:", error);
+      alert("Error: " + (error.message || "Unknown error"));
+      setSavingLink(false);
+    }
   };
 
   const handleSaveProfile = async (e: React.FormEvent) => {
@@ -280,73 +332,112 @@ export default function ProfileDashboard() {
     if (!profileObjectId || !userProfile) return;
 
     setSavingProfile(true);
-    const tx = new Transaction();
-    tx.setGasBudget(10000000);
-    tx.moveCall({
-      target: `${PACKAGE_ID}::${MODULE_NAME}::update_profile`,
-      arguments: [
-        tx.object(profileObjectId),
-        tx.pure.string(editName),
-        tx.pure.string(editBio),
-        tx.pure.string(editAvatar),
-        tx.pure.string(userProfile.theme || "default"),
-      ],
-    });
+    
+    try {
+      // Update profile content in Walrus
+      const profileContent: ProfileContent = {
+        name: editName,
+        bio: editBio,
+        avatar_blob_id: editAvatar,
+        links: userProfile.links.map((link: any) => ({ label: link.key, url: link.value })),
+      };
 
-    signAndExecute(
-      { transaction: tx },
-      {
-        onSuccess: () => {
-          alert("Profile updated successfully!");
-          setShowEditProfile(false);
-          setSavingProfile(false);
-          setTimeout(() => window.location.reload(), 500);
-        },
-        onError: (error) => {
-          console.error("Failed to update profile:", error);
-          alert("Failed to update profile: " + error.message);
-          setSavingProfile(false);
-        },
-      }
-    );
+      const contentBlobId = await uploadProfileToWalrus(profileContent);
+
+      // Update on blockchain
+      const tx = new Transaction();
+      tx.setGasBudget(10000000);
+      tx.moveCall({
+        target: `${PACKAGE_ID}::${MODULE_NAME}::update_profile`,
+        arguments: [
+          tx.object(profileObjectId),
+          tx.pure.string(contentBlobId),
+          tx.pure.string(userProfile.theme || "default"),
+        ],
+      });
+
+      signAndExecute(
+        { transaction: tx },
+        {
+          onSuccess: () => {
+            alert("Profile updated successfully!");
+            setShowEditProfile(false);
+            setSavingProfile(false);
+            setTimeout(() => window.location.reload(), 500);
+          },
+          onError: (error) => {
+            console.error("Failed to update profile:", error);
+            alert("Failed to update profile: " + error.message);
+            setSavingProfile(false);
+          },
+        }
+      );
+    } catch (error: any) {
+      console.error("Error updating profile:", error);
+      alert("Error: " + (error.message || "Unknown error"));
+      setSavingProfile(false);
+    }
   };
 
   const handleThemeChange = async (themeName: string) => {
     if (!profileObjectId || !userProfile) return;
 
     setSavingTheme(true);
-    const tx = new Transaction();
-    tx.setGasBudget(10000000);
-    tx.moveCall({
-      target: `${PACKAGE_ID}::${MODULE_NAME}::update_profile`,
-      arguments: [
-        tx.object(profileObjectId),
-        tx.pure.string(userProfile.name),
-        tx.pure.string(userProfile.bio),
-        tx.pure.string(userProfile.avatar || ""),
-        tx.pure.string(themeName),
-      ],
-    });
+    
+    try {
+      // Get current content blob ID from blockchain (no need to re-upload content)
+      const objects = await suiClient.getOwnedObjects({
+        owner: account!.address,
+        options: { showType: true, showContent: true },
+      });
 
-    signAndExecute(
-      { transaction: tx },
-      {
-        onSuccess: () => {
-          const newTheme = getTheme(themeName);
-          setCurrentTheme(newTheme);
-          setUserProfile({ ...userProfile, theme: themeName });
-          // Save theme to localStorage
-          localStorage.setItem("suitree_theme", themeName);
-          setShowThemeModal(false);
-          setSavingTheme(false);
-        },
-        onError: (error) => {
-          console.error("Failed to update theme:", error);
-          alert("Failed to update theme: " + error.message);
-          setSavingTheme(false);
-        },
+      const profileObjects = objects.data.filter((obj: any) => {
+        const type = obj.data?.type;
+        return type?.includes("::linktree::LinkTreeProfile") && type?.startsWith(PACKAGE_ID);
+      });
+
+      const profileObj = profileObjects.length > 0 ? profileObjects[profileObjects.length - 1] : null;
+      if (!profileObj || !profileObj.data?.content?.fields) {
+        throw new Error("Profile not found");
       }
-    );
+
+      const contentBlobId = profileObj.data.content.fields.content_blob_id;
+
+      // Update only theme on blockchain
+      const tx = new Transaction();
+      tx.setGasBudget(10000000);
+      tx.moveCall({
+        target: `${PACKAGE_ID}::${MODULE_NAME}::update_profile`,
+        arguments: [
+          tx.object(profileObjectId),
+          tx.pure.string(contentBlobId),
+          tx.pure.string(themeName),
+        ],
+      });
+
+      signAndExecute(
+        { transaction: tx },
+        {
+          onSuccess: () => {
+            const newTheme = getTheme(themeName);
+            setCurrentTheme(newTheme);
+            setUserProfile({ ...userProfile, theme: themeName });
+            localStorage.setItem("suitree_theme", themeName);
+            setShowThemeModal(false);
+            setSavingTheme(false);
+          },
+          onError: (error) => {
+            console.error("Failed to update theme:", error);
+            alert("Failed to update theme: " + error.message);
+            setSavingTheme(false);
+          },
+        }
+      );
+    } catch (error: any) {
+      console.error("Error updating theme:", error);
+      alert("Error: " + (error.message || "Unknown error"));
+      setSavingTheme(false);
+    }
   };
 
   const handleChangeUsername = async (e: React.FormEvent) => {

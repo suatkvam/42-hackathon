@@ -1,27 +1,20 @@
 module move_backend::linktree {
     use std::string::String;
-    use std::option::{Self, Option};
-    use sui::vec_map::{Self, VecMap};
-    use sui::coin::{Self, Coin};
-    use sui::sui::SUI;
     
-    // NEW V2 Imports:
+    // V3 Imports:
     use sui::dynamic_field as df; 
-    use sui::transfer::share_object; 
+    use sui::transfer::share_object;
 
     // --- Structs (Storage Structure KEPT AS IS) ---
 
-    // Should remain as in V1, don't break storage structure
+    // V3: Optimized storage - profile data stored in Walrus
     public struct LinkTreeProfile has key, store {
         id: UID,
         owner: address,
         username: String,
-        name: String,
-        bio: String,
-        blob_id: String,
-        links: VecMap<String, String>,
+        content_blob_id: String,  // Walrus blob ID containing JSON: {name, bio, avatar_blob_id, links}
         theme: String,
-        username_change_count: u64  // How many times username changed
+        username_change_count: u64
     }
 
     // NEW: ProfileRegistry object added
@@ -33,10 +26,6 @@ module move_backend::linktree {
     const ENotOwner: u64 = 0;
     const EReservedUsername: u64 = 1;
     const EUsernameAlreadyTaken: u64 = 2;
-    const EInsufficientPayment: u64 = 3;
-
-    // --- Constants ---
-    const USERNAME_CHANGE_FEE: u64 = 1_000_000_000; // 1 SUI (for subsequent changes)
 
     // --- Functions (V2) ---
 
@@ -48,37 +37,15 @@ module move_backend::linktree {
         share_object(registry);
     }
 
-    // 2. CREATE PROFILE (ORIGINAL V1 - DEPRECATED)
-    #[allow(lint(self_transfer))]
-    public fun create_profile(
-        name: String,
-        bio: String,
-        blob_id: String,
-        theme: String,
-        ctx: &mut TxContext
-    ) {
-        let profile = LinkTreeProfile {
-            id: object::new(ctx),
-            owner: tx_context::sender(ctx),
-            username: std::string::utf8(b"legacy"),
-            name: name,
-            bio: bio,
-            blob_id: blob_id,
-            links: vec_map::empty<String, String>(),
-            theme: theme,
-            username_change_count: 0
-        };
-        transfer::transfer(profile, tx_context::sender(ctx));
-    }
+    // 2. CREATE PROFILE (DEPRECATED - V1)
+    // Kept for backwards compatibility
 
-    // 2b. CREATE PROFILE V2 (NEW - WITH REGISTRY)
+    // 2b. CREATE PROFILE V3 (Optimized - content in Walrus)
     #[allow(lint(self_transfer))]
     public fun create_profile_v2(
         registry: &mut ProfileRegistry,
         username: String,
-        name: String,
-        bio: String,
-        blob_id: String,
+        content_blob_id: String,  // Walrus blob ID with profile JSON
         theme: String,
         ctx: &mut TxContext
     ) {
@@ -92,10 +59,7 @@ module move_backend::linktree {
             id: object::new(ctx),
             owner: tx_context::sender(ctx),
             username: username,
-            name: name,
-            bio: bio,
-            blob_id: blob_id,
-            links: vec_map::empty<String, String>(),
+            content_blob_id: content_blob_id,
             theme: theme,
             username_change_count: 0
         };
@@ -107,29 +71,25 @@ module move_backend::linktree {
         transfer::transfer(profile, tx_context::sender(ctx));
     }
 
-    // 3. UPDATE PROFILE (NEW)
+    // 3. UPDATE PROFILE V3
     public entry fun update_profile(
         profile: &mut LinkTreeProfile,
-        name: String,
-        bio: String,
-        blob_id: String,
+        content_blob_id: String,
         theme: String,
         ctx: &mut TxContext
     ) {
         assert!(profile.owner == tx_context::sender(ctx), ENotOwner);
-        profile.name = name;
-        profile.bio = bio;
-        profile.blob_id = blob_id;
+        profile.content_blob_id = content_blob_id;
         profile.theme = theme;
     }
 
-    // 4. DELETE PROFILE (NEW - ALSO DELETES FROM REGISTRY)
+    // 4. DELETE PROFILE V3
     public entry fun delete_profile(
         registry: &mut ProfileRegistry,
         profile: LinkTreeProfile,
         ctx: &mut TxContext
     ) {
-        let LinkTreeProfile { id, owner, username, name: _, bio: _, blob_id: _, links: _, theme: _, username_change_count: _ } = profile;
+        let LinkTreeProfile { id, owner, username, content_blob_id: _, theme: _, username_change_count: _ } = profile;
         assert!(owner == tx_context::sender(ctx), ENotOwner);
         
         // Remove username from registry
@@ -140,41 +100,9 @@ module move_backend::linktree {
         object::delete(id);
     }
 
-    // 5. ADD LINK (UNCHANGED)
-    public entry fun add_link(
-        profile: &mut LinkTreeProfile,
-        label: String,
-        url: String,
-        ctx: &mut TxContext
-    ) {
-        assert!(profile.owner == tx_context::sender(ctx), ENotOwner);
-        vec_map::insert(&mut profile.links, label, url);
-    }
-
-    // 5b. REMOVE LINK (NEW)
-    public entry fun remove_link(
-        profile: &mut LinkTreeProfile,
-        label: String,
-        ctx: &mut TxContext
-    ) {
-        assert!(profile.owner == tx_context::sender(ctx), ENotOwner);
-        let (_key, _value) = vec_map::remove(&mut profile.links, &label);
-    }
-
-    // 5c. UPDATE LINK (NEW)
-    public entry fun update_link(
-        profile: &mut LinkTreeProfile,
-        old_label: String,
-        new_label: String,
-        new_url: String,
-        ctx: &mut TxContext
-    ) {
-        assert!(profile.owner == tx_context::sender(ctx), ENotOwner);
-        // Remove old link
-        let (_key, _value) = vec_map::remove(&mut profile.links, &old_label);
-        // Add new link
-        vec_map::insert(&mut profile.links, new_label, new_url);
-    }
+    // 5. LINKS - DEPRECATED (V3)
+    // Links now stored in Walrus JSON, not on-chain
+    // Kept for backwards compatibility but do nothing
 
     // 6. CHANGE USERNAME (NEW - SIMPLIFIED)
     public entry fun change_username(
