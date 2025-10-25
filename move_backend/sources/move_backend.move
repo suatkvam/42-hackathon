@@ -6,17 +6,20 @@ module move_backend::linktree {
     use sui::dynamic_field as df; 
     use sui::transfer::share_object; 
 
-    // --- Structs ---
+    // --- Structs (Depolama Yapısı AYNEN KORUNDU) ---
+
+    // V1'deki gibi kalmalı, depolama yapısını bozmayalım
     public struct LinkTreeProfile has key, store {
         id: UID,
         owner: address,
         name: String,
         bio: String,
-        avatar_cid: String,
+        blob_id: String,
         links: VecMap<String, String>,
         theme: String
     }
 
+    // YENİ: ProfileRegistry objesi eklendi
     public struct ProfileRegistry has key, store {
         id: UID
     }
@@ -24,9 +27,9 @@ module move_backend::linktree {
     // --- Hata Kodları ---
     const ENotOwner: u64 = 0;
 
-    // --- Fonksiyonlar ---
+    // --- Fonksiyonlar (V2) ---
 
-    // Registry Oluşturma
+    // 1. REGISTRY OLUŞTURMA (YENİ)
     public fun create_registry(ctx: &mut TxContext) {
         let registry = ProfileRegistry {
             id: object::new(ctx)
@@ -34,13 +37,12 @@ module move_backend::linktree {
         share_object(registry);
     }
 
-    // Profil Oluşturma (V2)
+    // 2. PROFİL OLUŞTURMA (ORIGINAL V1 - DEPRECATED)
+    #[allow(lint(self_transfer))]
     public fun create_profile(
-        registry: &mut ProfileRegistry, 
-        username: String,              
         name: String,
         bio: String,
-        avatar_cid: String,
+        blob_id: String,
         theme: String,
         ctx: &mut TxContext
     ) {
@@ -49,18 +51,42 @@ module move_backend::linktree {
             owner: tx_context::sender(ctx),
             name: name,
             bio: bio,
-            avatar_cid: avatar_cid,
+            blob_id: blob_id,
+            links: vec_map::empty<String, String>(),
+            theme: theme
+        };
+        transfer::transfer(profile, tx_context::sender(ctx));
+    }
+
+    // 2b. PROFİL OLUŞTURMA V2 (YENİ - REGISTRY İLE)
+    #[allow(lint(self_transfer))]
+    public fun create_profile_v2(
+        registry: &mut ProfileRegistry,
+        username: String,
+        name: String,
+        bio: String,
+        blob_id: String,
+        theme: String,
+        ctx: &mut TxContext
+    ) {
+        let profile = LinkTreeProfile {
+            id: object::new(ctx),
+            owner: tx_context::sender(ctx),
+            name: name,
+            bio: bio,
+            blob_id: blob_id,
             links: vec_map::empty<String, String>(),
             theme: theme
         };
 
+        // Dinamik Alan Ekleme
         let profile_id = object::uid_to_inner(&profile.id);
-        df::add(&mut registry.id, username, profile_id); // 'username' zaten varsa hata verir
+        df::add(&mut registry.id, username, profile_id); 
 
         transfer::transfer(profile, tx_context::sender(ctx));
     }
 
-    // Link Ekleme
+    // 3. LINK EKLEME (DEĞİŞMEDİ)
     public fun add_link(
         profile: &mut LinkTreeProfile,
         label: String,
@@ -71,21 +97,16 @@ module move_backend::linktree {
         vec_map::insert(&mut profile.links, label, url);
     }
 
-    // --- Okuma Fonksiyonları (V2) ---
-
-    // HATA ÇÖZÜMÜ: 'view' kaldırıldı. '&' parametresi zaten okuma olduğunu belirtir.
-    // HATA ÇÖZÜMÜ: df::borrow<&ID> döndürür, biz * ile değeri (ID) alıp döndürüyoruz.
+    // 4. OKUMA FONKSİYONLARI (EKLENDİ)
     public fun get_profile_id_by_username(
-        registry: &ProfileRegistry, // Sadece '&' yeterli, 'view' gereksiz
+        registry: &ProfileRegistry, 
         username: String
     ): ID {
-        // df::borrow<&ID> döndürür, * ile değeri alırız (dereference)
         *df::borrow<String, ID>(&registry.id, username) 
     }
 
-    // HATA ÇÖZÜMÜ: 'view' kaldırıldı.
     public fun username_exists(
-        registry: &ProfileRegistry, // Sadece '&' yeterli, 'view' gereksiz
+        registry: &ProfileRegistry, 
         username: String
     ): bool {
         df::exists_<String>(&registry.id, username)
