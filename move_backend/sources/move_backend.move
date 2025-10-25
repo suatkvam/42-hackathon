@@ -106,7 +106,7 @@ module move_backend::linktree {
     }
 
     // 4. PROFİL SİLME (YENİ)
-    public fun delete_profile(
+    public entry fun delete_profile(
         profile: LinkTreeProfile,
         ctx: &mut TxContext
     ) {
@@ -116,7 +116,7 @@ module move_backend::linktree {
     }
 
     // 5. LINK EKLEME (DEĞİŞMEDİ)
-    public fun add_link(
+    public entry fun add_link(
         profile: &mut LinkTreeProfile,
         label: String,
         url: String,
