@@ -396,8 +396,9 @@ export default function CreateProfileSimple({ onClose, onSuccess }: CreateProfil
               style={{
                 padding: "10px 20px",
                 borderRadius: "5px",
-                border: "1px solid #ccc",
-                backgroundColor: "white",
+                border: "2px solid #4a5568",
+                backgroundColor: "#f7fafc",
+                color: "#2d3748",
                 cursor: loading ? "not-allowed" : "pointer",
                 fontSize: "14px",
                 fontWeight: "bold",
