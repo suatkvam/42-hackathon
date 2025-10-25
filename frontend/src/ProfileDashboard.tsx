@@ -5,7 +5,7 @@ import { Transaction } from "@mysten/sui/transactions";
 import { QRCodeSVG } from "qrcode.react";
 import CreateProfileSimple from "./CreateProfileSimple";
 import { getWalrusImageUrl } from "./walrusService";
-import { PACKAGE_ID, MODULE_NAME } from "./constants";
+import { PACKAGE_ID, MODULE_NAME, REGISTRY_ID } from "./constants";
 import { getTheme, getThemeNames, type Theme } from "./themes";
 
 export default function ProfileDashboard() {
