@@ -23,6 +23,7 @@ export default function ProfilePage() {
   const [newLinkLabel, setNewLinkLabel] = useState("");
   const [newLinkUrl, setNewLinkUrl] = useState("");
   const [addingLink, setAddingLink] = useState(false);
+  const [deletingProfile, setDeletingProfile] = useState(false);
 
   // Redirect to landing if not connected
   useEffect(() => {
@@ -105,6 +106,35 @@ export default function ProfilePage() {
     navigate("/");
   };
 
+  const handleDeleteProfile = () => {
+    if (!confirm("Are you sure you want to delete your profile? This action cannot be undone.")) {
+      return;
+    }
+
+    setDeletingProfile(true);
+    const tx = new Transaction();
+    tx.setGasBudget(10000000);
+    tx.moveCall({
+      target: `${PACKAGE_ID}::${MODULE_NAME}::delete_profile`,
+      arguments: [tx.object(profileObjectId)],
+    });
+
+    signAndExecute(
+      { transaction: tx },
+      {
+        onSuccess: () => {
+          alert("Profile deleted successfully!");
+          window.location.reload();
+        },
+        onError: (error) => {
+          console.error("Failed to delete profile:", error);
+          alert("Failed to delete profile: " + error.message);
+          setDeletingProfile(false);
+        },
+      }
+    );
+  };
+
   // Demo profile (fallback)
   const demoProfile = {
     name: "Create Your Profile",
@@ -147,6 +177,32 @@ export default function ProfilePage() {
           🌳 SuiTree
         </h1>
         <div style={{ display: "flex", gap: "15px", alignItems: "center" }}>
+          {/* Delete Profile button */}
+          {userProfile && account && (
+            <button
+              onClick={handleDeleteProfile}
+              disabled={deletingProfile}
+              style={{
+                padding: "10px 25px",
+                backgroundColor: deletingProfile ? "#ccc" : "#ff4444",
+                color: "white",
+                border: "none",
+                borderRadius: "8px",
+                cursor: deletingProfile ? "not-allowed" : "pointer",
+                fontWeight: "bold",
+                transition: "all 0.3s",
+              }}
+              onMouseOver={(e) => {
+                if (!deletingProfile) e.currentTarget.style.backgroundColor = "#cc0000";
+              }}
+              onMouseOut={(e) => {
+                if (!deletingProfile) e.currentTarget.style.backgroundColor = "#ff4444";
+              }}
+            >
+              {deletingProfile ? "Deleting..." : "🗑️ Delete Profile"}
+            </button>
+          )}
+
           {/* Create/Edit Profile button */}
           {account && (
             <button
