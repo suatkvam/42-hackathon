@@ -136,7 +136,7 @@ export default function CreateProfileSimple({ onClose, onSuccess }: CreateProfil
         onClick={(e) => e.stopPropagation()}
       >
         <h2 style={{ marginTop: 0, marginBottom: "20px" }}>
-          ✨ Profil Oluştur
+          ✨ Create Profile
         </h2>
         
         <form 
@@ -152,7 +152,7 @@ export default function CreateProfileSimple({ onClose, onSuccess }: CreateProfil
           {/* Username */}
           <div>
             <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold", fontSize: "14px" }}>
-              Kullanıcı Adı * <span style={{ fontSize: "12px", color: "#666" }}>(değiştirilemez)</span>
+              Username * <span style={{ fontSize: "12px", color: "#666" }}>(cannot be changed)</span>
             </label>
             <input
               type="text"
@@ -168,17 +168,17 @@ export default function CreateProfileSimple({ onClose, onSuccess }: CreateProfil
                 boxSizing: "border-box",
                 fontSize: "14px",
               }}
-              placeholder="ornek_kullanici"
+              placeholder="example_user"
             />
             <small style={{ fontSize: "12px", color: "#666" }}>
-              Bu sizin benzersiz URL'iniz olacak: /{username || "username"}
+              This will be your unique URL: /{username || "username"}
             </small>
           </div>
 
           {/* Display Name */}
           <div>
             <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold", fontSize: "14px" }}>
-              Görünen İsim *
+              Display Name *
             </label>
             <input
               type="text"
@@ -193,14 +193,14 @@ export default function CreateProfileSimple({ onClose, onSuccess }: CreateProfil
                 boxSizing: "border-box",
                 fontSize: "14px",
               }}
-              placeholder="Adınız Soyadınız"
+              placeholder="Your Full Name"
             />
           </div>
 
           {/* Bio */}
           <div>
             <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold", fontSize: "14px" }}>
-              Biyografi
+              Bio
             </label>
             <textarea
               value={bio}
@@ -215,7 +215,7 @@ export default function CreateProfileSimple({ onClose, onSuccess }: CreateProfil
                 fontSize: "14px",
                 resize: "vertical",
               }}
-              placeholder="Kendinizden bahsedin..."
+              placeholder="Tell us about yourself..."
             />
           </div>
 
@@ -223,7 +223,7 @@ export default function CreateProfileSimple({ onClose, onSuccess }: CreateProfil
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
               <label style={{ fontWeight: "bold", fontSize: "14px" }}>
-                Linkler 🔗
+                Links 🔗
               </label>
               <button
                 type="button"
@@ -239,7 +239,7 @@ export default function CreateProfileSimple({ onClose, onSuccess }: CreateProfil
                   fontWeight: "bold",
                 }}
               >
-                + Link Ekle
+                + Add Link
               </button>
             </div>
 
@@ -252,7 +252,7 @@ export default function CreateProfileSimple({ onClose, onSuccess }: CreateProfil
                 color: "#666",
                 fontSize: "14px",
               }}>
-                Henüz link eklemediniz. "Link Ekle" butonuna tıklayarak başlayın!
+                No links yet. Click "Add Link" to get started!
               </div>
             )}
 
@@ -273,7 +273,7 @@ export default function CreateProfileSimple({ onClose, onSuccess }: CreateProfil
                   type="text"
                   value={link.label}
                   onChange={(e) => updateLink(link.id, "label", e.target.value)}
-                  placeholder="Etiket"
+                  placeholder="Label"
                   style={{
                     padding: "8px",
                     borderRadius: "4px",
@@ -313,7 +313,7 @@ export default function CreateProfileSimple({ onClose, onSuccess }: CreateProfil
 
             {links.length > 0 && (
               <small style={{ fontSize: "12px", color: "#666", display: "block", marginTop: "5px" }}>
-                💡 Profil oluşturduktan sonra da link ekleyebilirsiniz
+                💡 You can also add links after creating your profile
               </small>
             )}
           </div>

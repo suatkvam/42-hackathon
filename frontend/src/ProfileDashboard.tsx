@@ -176,7 +176,7 @@ export default function ProfileDashboard() {
     e.preventDefault();
     if (!profileObjectId || !newUsername) return;
 
-    // Reserved usernames kontrolü
+    // Reserved usernames check
     const reservedUsernames = [
       "dashboard", "admin", "root", "system", "api", "www", "app",
       "support", "help", "settings", "profile", "login", "register",
@@ -185,7 +185,7 @@ export default function ProfileDashboard() {
     ];
 
     if (reservedUsernames.includes(newUsername.toLowerCase())) {
-      alert("Bu kullanıcı adı rezerve edilmiştir. Lütfen başka bir kullanıcı adı seçin.");
+      alert("This username is reserved. Please choose another username.");
       return;
     }
 
@@ -193,12 +193,12 @@ export default function ProfileDashboard() {
     const tx = new Transaction();
     tx.setGasBudget(10000000);
     
-    // İlk değişiklikten sonra ödeme gerekli
+    // Payment required after first change
     const changeCount = userProfile?.username_change_count || 0;
     
     if (changeCount > 0) {
       const confirmPayment = window.confirm(
-        `Kullanıcı adını değiştirmek için 1 SUI ödemeniz gerekiyor. (${changeCount}. değişiklik)\n\nDevam etmek istiyor musunuz?`
+        `Changing username requires 1 SUI payment. (Change #${changeCount + 1})\n\nContinue?`
       );
       
       if (!confirmPayment) {
@@ -206,7 +206,7 @@ export default function ProfileDashboard() {
         return;
       }
     } else {
-      alert("İlk kullanıcı adı değişikliği bedava! Sonraki değişiklikler 1 SUI olacak.");
+      alert("First username change is free! Subsequent changes will cost 1 SUI.");
     }
 
     tx.moveCall({
@@ -222,7 +222,7 @@ export default function ProfileDashboard() {
       { transaction: tx },
       {
         onSuccess: () => {
-          alert("Kullanıcı adı başarıyla değiştirildi!");
+          alert("Username changed successfully!");
           setShowChangeUsername(false);
           setNewUsername("");
           setTimeout(() => window.location.reload(), 500);
@@ -230,11 +230,11 @@ export default function ProfileDashboard() {
         onError: (error) => {
           console.error("Failed to change username:", error);
           if (error.message.includes("EUsernameAlreadyTaken")) {
-            alert("Bu kullanıcı adı zaten alınmış. Lütfen başka bir kullanıcı adı seçin.");
+            alert("This username is already taken. Please choose another one.");
           } else if (error.message.includes("EReservedUsername")) {
-            alert("Bu kullanıcı adı rezerve edilmiştir. Lütfen başka bir kullanıcı adı seçin.");
+            alert("This username is reserved. Please choose another one.");
           } else {
-            alert("Kullanıcı adı değiştirilirken bir hata oluştu: " + error.message);
+            alert("Error changing username: " + error.message);
           }
           setChangingUsername(false);
         },
@@ -246,10 +246,10 @@ export default function ProfileDashboard() {
     if (!profileObjectId) return;
 
     const confirmDelete = window.prompt(
-      'Hesabınızı silmek istediğinizden emin misiniz?\n\nBu işlem geri alınamaz. Onaylamak için "SIL" yazın:'
+      'Are you sure you want to delete your account?\n\nThis action cannot be undone. Type "DELETE" to confirm:'
     );
 
-    if (confirmDelete !== "SIL") {
+    if (confirmDelete !== "DELETE") {
       return;
     }
 
@@ -268,12 +268,12 @@ export default function ProfileDashboard() {
       { transaction: tx },
       {
         onSuccess: () => {
-          alert("Hesabınız başarıyla silindi.");
+          alert("Your account has been deleted.");
           navigate("/");
         },
         onError: (error) => {
           console.error("Failed to delete account:", error);
-          alert("Hesap silinirken bir hata oluştu: " + error.message);
+          alert("Error deleting account: " + error.message);
           setDeletingAccount(false);
         },
       }
@@ -331,7 +331,7 @@ export default function ProfileDashboard() {
         <NavItem icon="🏠" label="My Linktree" active theme={currentTheme} />
         <NavItem icon="🎨" label="Appearance" onClick={() => setShowThemeModal(true)} theme={currentTheme} />
         <NavItem icon="👤" label="Change Username" onClick={() => setShowChangeUsername(true)} theme={currentTheme} />
-        <NavItem icon="📊" label="Analytics" onClick={() => alert("Coming soon!")} theme={currentTheme} />
+        <NavItem icon="📊" label="Analytics" onClick={() => alert("Coming soon")} theme={currentTheme} />
         <NavItem icon="🗑️" label="Delete Account" onClick={() => setShowDeleteAccount(true)} theme={currentTheme} />
         
         <div style={{ marginTop: "auto", paddingTop: "20px", borderTop: `1px solid ${currentTheme.colors.border}` }}>
@@ -362,7 +362,7 @@ export default function ProfileDashboard() {
                 margin: 0, 
                 textShadow: currentTheme.colors.text === "#1a202c" ? "none" : "2px 2px 4px rgba(0,0,0,0.3)"
               }}>
-                Links
+                My Links
               </h1>
               <p style={{ 
                 color: currentTheme.colors.text === "#1a202c" ? currentTheme.colors.textSecondary : "rgba(255,255,255,0.9)", 
@@ -438,7 +438,7 @@ export default function ProfileDashboard() {
                     <h3 style={{ fontSize: "18px", fontWeight: "bold", margin: 0 }}>Add New Link</h3>
                     <input
                       type="text"
-                      placeholder="Title (e.g., GitHub, Twitter)"
+                      placeholder="Label (e.g., GitHub, Twitter)"
                       value={newLinkLabel}
                       onChange={(e) => setNewLinkLabel(e.target.value)}
                       required
@@ -765,13 +765,13 @@ export default function ProfileDashboard() {
             onClick={(e) => e.stopPropagation()}
           >
             <h2 style={{ fontSize: "24px", fontWeight: "bold", color: currentTheme.colors.text, marginTop: 0 }}>
-              👤 Kullanıcı Adını Değiştir
+              👤 Change Username
             </h2>
             <p style={{ color: currentTheme.colors.textSecondary, marginBottom: "20px", fontSize: "14px" }}>
-              Mevcut: <strong>@{userProfile?.username}</strong>
+              Current: <strong>@{userProfile?.username}</strong>
             </p>
             <p style={{ color: currentTheme.colors.warning, marginBottom: "20px", fontSize: "13px", backgroundColor: "#fff3cd", padding: "10px", borderRadius: "8px" }}>
-              ⚠️ İlk değişiklik bedava, sonraki her değişiklik <strong>1 SUI</strong> tutar.
+              ⚠️ First change is free, subsequent changes cost <strong>1 SUI</strong> each.
             </p>
 
             <form onSubmit={handleChangeUsername}>
@@ -779,7 +779,7 @@ export default function ProfileDashboard() {
                 type="text"
                 value={newUsername}
                 onChange={(e) => setNewUsername(e.target.value.toLowerCase().trim())}
-                placeholder="Yeni kullanıcı adı"
+                placeholder="New username"
                 required
                 disabled={changingUsername}
                 style={{
@@ -809,7 +809,7 @@ export default function ProfileDashboard() {
                     fontWeight: "600",
                   }}
                 >
-                  İptal
+                  Cancel
                 </button>
                 <button
                   type="submit"
@@ -825,7 +825,7 @@ export default function ProfileDashboard() {
                     fontWeight: "600",
                   }}
                 >
-                  {changingUsername ? "Değiştiriliyor..." : "Değiştir"}
+                  {changingUsername ? "Changing..." : "Change"}
                 </button>
               </div>
             </form>
@@ -862,13 +862,13 @@ export default function ProfileDashboard() {
             onClick={(e) => e.stopPropagation()}
           >
             <h2 style={{ fontSize: "24px", fontWeight: "bold", color: currentTheme.colors.danger, marginTop: 0 }}>
-              🗑️ Hesabı Sil
+              🗑️ Delete Account
             </h2>
             <p style={{ color: currentTheme.colors.text, marginBottom: "20px", fontSize: "14px" }}>
-              Bu işlem geri alınamaz. Profiliniz ve tüm bağlantılarınız kalıcı olarak silinecek.
+              This action cannot be undone. Your profile and all links will be permanently deleted.
             </p>
             <p style={{ color: currentTheme.colors.danger, marginBottom: "20px", fontSize: "13px", backgroundColor: "#fee", padding: "10px", borderRadius: "8px" }}>
-              ⚠️ <strong>UYARI:</strong> Bu işlem geri alınamaz!
+              ⚠️ <strong>WARNING:</strong> This action cannot be undone!
             </p>
 
             <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
@@ -886,7 +886,7 @@ export default function ProfileDashboard() {
                   fontWeight: "600",
                 }}
               >
-                İptal
+                Cancel
               </button>
               <button
                 onClick={handleDeleteAccount}
@@ -902,7 +902,7 @@ export default function ProfileDashboard() {
                   fontWeight: "600",
                 }}
               >
-                {deletingAccount ? "Siliniyor..." : "Hesabı Kalıcı Olarak Sil"}
+                {deletingAccount ? "Deleting..." : "Permanently Delete Account"}
               </button>
             </div>
           </div>
@@ -939,10 +939,10 @@ export default function ProfileDashboard() {
             onClick={(e) => e.stopPropagation()}
           >
             <h2 style={{ fontSize: "28px", fontWeight: "bold", color: currentTheme.colors.text, marginTop: 0, marginBottom: "10px" }}>
-              📋 Profil Paylaş
+              📋 Share Profile
             </h2>
             <p style={{ color: currentTheme.colors.textSecondary, marginBottom: "30px", fontSize: "14px" }}>
-              QR kodu tarayın veya linki kopyalayın
+              Scan the QR code or copy the link
             </p>
 
             {/* QR Code */}
@@ -1059,7 +1059,7 @@ export default function ProfileDashboard() {
               onMouseEnter={(e) => e.currentTarget.style.backgroundColor = currentTheme.colors.border}
               onMouseLeave={(e) => e.currentTarget.style.backgroundColor = currentTheme.colors.cardHover}
             >
-              Kapat
+              Close
             </button>
           </div>
         </div>

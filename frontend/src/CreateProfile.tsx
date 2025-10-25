@@ -273,7 +273,7 @@ export default function CreateProfile({ onClose, onSuccess, isEditing = false, p
             {/* Default Avatar Selection */}
             <div style={{ marginBottom: "10px" }}>
               <div style={{ fontSize: "12px", color: "#666", marginBottom: "5px" }}>
-                Varsayılan avatar seç:
+                Select default avatar:
               </div>
               <div style={{ display: "flex", gap: "10px", justifyContent: "center", marginBottom: "10px" }}>
                 {defaultAvatars.map((avatar, index) => (
@@ -323,13 +323,13 @@ export default function CreateProfile({ onClose, onSuccess, isEditing = false, p
                   color: "#c96d37",
                 }}
               >
-                {uploading ? "Uploading to Walrus..." : "📤 Walrus'a Yükle (geçici olarak çalışmıyor)"}
+                {uploading ? "Uploading to Walrus..." : "📤 Upload to Walrus (currently unavailable)"}
               </label>
             </div>
 
             {/* Manual Blob ID Input */}
             <div style={{ fontSize: "12px", color: "#666", marginBottom: "5px" }}>
-              Veya Walrus blob ID manuel girin:
+              Or enter Walrus blob ID manually:
             </div>
             {(error.includes("Walrus") || error.includes("CLI")) && (
               <div style={{ 
@@ -341,10 +341,10 @@ export default function CreateProfile({ onClose, onSuccess, isEditing = false, p
                 marginBottom: "8px",
                 border: "1px solid #c96d37"
               }}>
-                💡 <strong>İpuçları:</strong><br/>
-                1) Yukarıdan varsayılan avatar seçin (en kolay)<br/>
-                2) Walrus CLI ile yükle: <code style={{fontSize: "10px", backgroundColor: "#fff", padding: "2px 4px", borderRadius: "2px"}}>walrus store resim.png</code><br/>
-                3) Walrus testnet düzeldikten sonra tekrar deneyin
+                💡 <strong>Tips:</strong><br/>
+                1) Select default avatar above (easiest)<br/>
+                2) Upload with Walrus CLI: <code style={{fontSize: "10px", backgroundColor: "#fff", padding: "2px 4px", borderRadius: "2px"}}>walrus store image.png</code><br/>
+                3) Try again after Walrus testnet is fixed
               </div>
             )}
             <input
@@ -373,7 +373,7 @@ export default function CreateProfile({ onClose, onSuccess, isEditing = false, p
                 boxSizing: "border-box",
                 fontSize: "12px",
               }}
-              placeholder="Blob ID (veya varsayılan avatar seçin)"
+              placeholder="Blob ID (or select default avatar above)"
             />
           </div>
 
