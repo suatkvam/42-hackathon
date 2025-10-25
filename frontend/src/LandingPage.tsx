@@ -1,4 +1,3 @@
-import React from "react";
 import { ConnectButton, useCurrentAccount } from "@mysten/dapp-kit";
 import { useNavigate } from "react-router-dom";
 
@@ -19,19 +18,26 @@ export default function LandingPage() {
       {/* Header */}
       <header
         style={{
-          padding: "20px 40px",
+          padding: "20px",
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
+          flexWrap: "wrap",
+          gap: "15px",
         }}
       >
-        <h1 style={{ color: "white", margin: 0, fontSize: "28px", fontWeight: "bold" }}>
+        <h1 style={{ 
+          color: "white", 
+          margin: 0, 
+          fontSize: "clamp(20px, 5vw, 28px)", 
+          fontWeight: "bold" 
+        }}>
           🌳 SuiTree
         </h1>
         <div style={{ display: "flex", gap: "15px", alignItems: "center" }}>
           {account && (
             <button
-              onClick={() => navigate("/profile")}
+              onClick={() => navigate("/dashboard")}
               style={{
                 padding: "10px 25px",
                 backgroundColor: "white",
@@ -51,7 +57,7 @@ export default function LandingPage() {
                 e.currentTarget.style.color = "#c96d37";
               }}
             >
-              My Profile
+              🌳 Dashboard
             </button>
           )}
           <ConnectButton />
@@ -74,7 +80,7 @@ export default function LandingPage() {
           <h1
             style={{
               color: "white",
-              fontSize: "56px",
+              fontSize: "clamp(32px, 8vw, 56px)",
               fontWeight: "bold",
               marginBottom: "20px",
               lineHeight: "1.2",
@@ -85,7 +91,7 @@ export default function LandingPage() {
           <p
             style={{
               color: "rgba(255, 255, 255, 0.8)",
-              fontSize: "20px",
+              fontSize: "clamp(16px, 3vw, 20px)",
               marginBottom: "40px",
               lineHeight: "1.6",
             }}

@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useCurrentAccount, useDisconnectWallet, useSuiClient, useSignAndExecuteTransaction } from "@mysten/dapp-kit";
 import { useNavigate } from "react-router-dom";
 import { Transaction } from "@mysten/sui/transactions";
-import CreateProfile from "./CreateProfile";
+import CreateProfileSimple from "./CreateProfileSimple";
 import { getWalrusImageUrl } from "./walrusService";
 import { PACKAGE_ID, MODULE_NAME } from "./constants";
 
@@ -568,17 +568,8 @@ export default function ProfilePage() {
       )}
 
       {/* Create/Edit Profile Modal */}
-      {showCreateProfile && (
-        <CreateProfile
-          isEditing={!!userProfile}
-          profileObjectId={profileObjectId}
-          existingProfile={userProfile ? {
-            username: userProfile.username,
-            name: userProfile.name,
-            bio: userProfile.bio,
-            avatar: userProfile.avatar,
-            theme: userProfile.theme,
-          } : undefined}
+      {showCreateProfile && !userProfile && (
+        <CreateProfileSimple
           onClose={() => setShowCreateProfile(false)}
           onSuccess={() => {
             setShowCreateProfile(false);

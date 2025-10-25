@@ -32,6 +32,14 @@ export default function CreateProfile({ onClose, onSuccess, isEditing = false, p
   const { mutate: signAndExecute } = useSignAndExecuteTransaction();
   const suiClient = useSuiClient();
 
+  // Default avatar options (placeholder blob IDs or data URLs)
+  const defaultAvatars = [
+    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Ccircle cx='50' cy='50' r='40' fill='%234299e1'/%3E%3Ctext x='50' y='50' text-anchor='middle' dy='.3em' font-size='40' fill='white'%3E👤%3C/text%3E%3C/svg%3E",
+    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Ccircle cx='50' cy='50' r='40' fill='%2348bb78'/%3E%3Ctext x='50' y='50' text-anchor='middle' dy='.3em' font-size='40' fill='white'%3E🚀%3C/text%3E%3C/svg%3E",
+    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Ccircle cx='50' cy='50' r='40' fill='%23ed8936'/%3E%3Ctext x='50' y='50' text-anchor='middle' dy='.3em' font-size='40' fill='white'%3E🌟%3C/text%3E%3C/svg%3E",
+    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Ccircle cx='50' cy='50' r='40' fill='%239f7aea'/%3E%3Ctext x='50' y='50' text-anchor='middle' dy='.3em' font-size='40' fill='white'%3E👾%3C/text%3E%3C/svg%3E",
+  ];
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -64,8 +72,8 @@ export default function CreateProfile({ onClose, onSuccess, isEditing = false, p
       setPreviewUrl(getWalrusImageUrl(uploadedBlobId));
     } catch (err: any) {
       console.error("Upload error:", err);
-      setError("Failed to upload image to Walrus");
-      setPreviewUrl("");
+      setError("⚠️ Walrus testnet geçici olarak kullanılamıyor. Alternatif seçenekler: 1) Varsayılan avatar seçin, 2) Walrus CLI ile yükleyip blob ID girin, 3) Walrus olmadan devam edin.");
+      // Keep local preview
     } finally {
       setUploading(false);
     }
@@ -245,6 +253,11 @@ export default function CreateProfile({ onClose, onSuccess, isEditing = false, p
                 <img
                   src={previewUrl}
                   alt="Avatar preview"
+                  onError={(e) => {
+                    console.error("Failed to load image from:", previewUrl);
+                    setError("Failed to fetch image from Walrus. Please check the blob ID or upload a new image.");
+                    setPreviewUrl("");
+                  }}
                   style={{
                     width: "100px",
                     height: "100px",
@@ -255,6 +268,35 @@ export default function CreateProfile({ onClose, onSuccess, isEditing = false, p
                 />
               </div>
             )}
+
+            {/* Default Avatar Selection */}
+            <div style={{ marginBottom: "10px" }}>
+              <div style={{ fontSize: "12px", color: "#666", marginBottom: "5px" }}>
+                Varsayılan avatar seç:
+              </div>
+              <div style={{ display: "flex", gap: "10px", justifyContent: "center", marginBottom: "10px" }}>
+                {defaultAvatars.map((avatar, index) => (
+                  <img
+                    key={index}
+                    src={avatar}
+                    alt={`Default avatar ${index + 1}`}
+                    onClick={() => {
+                      setBlobId(avatar);
+                      setPreviewUrl(avatar);
+                      setError("");
+                    }}
+                    style={{
+                      width: "50px",
+                      height: "50px",
+                      borderRadius: "50%",
+                      cursor: "pointer",
+                      border: blobId === avatar ? "3px solid #c96d37" : "2px solid #ccc",
+                      objectFit: "cover",
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
 
             {/* Upload Button */}
             <div style={{ marginBottom: "10px" }}>
@@ -280,24 +322,48 @@ export default function CreateProfile({ onClose, onSuccess, isEditing = false, p
                   color: "#c96d37",
                 }}
               >
-                {uploading ? "Uploading to Walrus..." : "📤 Upload Image"}
+                {uploading ? "Uploading to Walrus..." : "📤 Walrus'a Yükle (geçici olarak çalışmıyor)"}
               </label>
             </div>
 
             {/* Manual Blob ID Input */}
             <div style={{ fontSize: "12px", color: "#666", marginBottom: "5px" }}>
-              Or enter Walrus blob ID manually:
+              Veya Walrus blob ID manuel girin:
             </div>
+            {(error.includes("Walrus") || error.includes("CLI")) && (
+              <div style={{ 
+                fontSize: "11px", 
+                color: "#c96d37", 
+                backgroundColor: "#fff3e0", 
+                padding: "8px", 
+                borderRadius: "4px", 
+                marginBottom: "8px",
+                border: "1px solid #c96d37"
+              }}>
+                💡 <strong>İpuçları:</strong><br/>
+                1) Yukarıdan varsayılan avatar seçin (en kolay)<br/>
+                2) Walrus CLI ile yükle: <code style={{fontSize: "10px", backgroundColor: "#fff", padding: "2px 4px", borderRadius: "2px"}}>walrus store resim.png</code><br/>
+                3) Walrus testnet düzeldikten sonra tekrar deneyin
+              </div>
+            )}
             <input
               type="text"
               value={blobId}
               onChange={(e) => {
-                setBlobId(e.target.value);
-                if (e.target.value) {
-                  setPreviewUrl(getWalrusImageUrl(e.target.value));
+                const newBlobId = e.target.value.trim();
+                setBlobId(newBlobId);
+                setError(""); // Clear previous errors
+                if (newBlobId && !newBlobId.startsWith("data:")) {
+                  // Only try to load from Walrus if it's not a data URL
+                  const url = getWalrusImageUrl(newBlobId);
+                  console.log("Setting preview URL:", url);
+                  setPreviewUrl(url);
+                } else if (newBlobId.startsWith("data:")) {
+                  setPreviewUrl(newBlobId);
+                } else {
+                  setPreviewUrl("");
                 }
               }}
-              required
               style={{
                 width: "100%",
                 padding: "10px",
@@ -306,7 +372,7 @@ export default function CreateProfile({ onClose, onSuccess, isEditing = false, p
                 boxSizing: "border-box",
                 fontSize: "12px",
               }}
-              placeholder="Paste blob ID here"
+              placeholder="Blob ID (veya varsayılan avatar seçin)"
             />
           </div>
 
