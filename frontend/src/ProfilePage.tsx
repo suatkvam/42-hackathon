@@ -71,6 +71,7 @@ export default function ProfilePage() {
           
           setProfileObjectId(profileObj.data.objectId);
           setUserProfile({
+            username: fields.username,
             name: fields.name,
             bio: fields.bio,
             avatar: avatarId,
@@ -281,10 +282,29 @@ export default function ProfilePage() {
               </div>
               <h2>{profile.name}</h2>
               <p style={{ opacity: 0.7, marginBottom: "25px" }}>{profile.bio}</p>
-              {isUserProfile && (
-                <div style={{ fontSize: "12px", opacity: 0.6, marginBottom: "15px" }}>
-                  ✓ Blockchain Profile
-                </div>
+              {isUserProfile && userProfile?.username && (
+                <>
+                  <div style={{ 
+                    fontSize: "14px", 
+                    opacity: 0.8, 
+                    marginBottom: "10px",
+                    padding: "8px",
+                    backgroundColor: "rgba(255,255,255,0.1)",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                  }}
+                  onClick={() => {
+                    const shareUrl = `${window.location.origin}/${userProfile.username}`;
+                    navigator.clipboard.writeText(shareUrl);
+                    alert("Profile link copied to clipboard!");
+                  }}
+                  >
+                    🔗 {window.location.origin}/{userProfile.username}
+                  </div>
+                  <div style={{ fontSize: "12px", opacity: 0.6, marginBottom: "15px" }}>
+                    ✓ Blockchain Profile
+                  </div>
+                </>
               )}
 
               {/* Links */}
@@ -326,6 +346,7 @@ export default function ProfilePage() {
           isEditing={!!userProfile}
           profileObjectId={profileObjectId}
           existingProfile={userProfile ? {
+            username: userProfile.username,
             name: userProfile.name,
             bio: userProfile.bio,
             avatar: userProfile.avatar,

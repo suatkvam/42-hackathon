@@ -12,6 +12,7 @@ module move_backend::linktree {
     public struct LinkTreeProfile has key, store {
         id: UID,
         owner: address,
+        username: String,
         name: String,
         bio: String,
         blob_id: String,
@@ -49,6 +50,7 @@ module move_backend::linktree {
         let profile = LinkTreeProfile {
             id: object::new(ctx),
             owner: tx_context::sender(ctx),
+            username: std::string::utf8(b"legacy"),
             name: name,
             bio: bio,
             blob_id: blob_id,
@@ -72,6 +74,7 @@ module move_backend::linktree {
         let profile = LinkTreeProfile {
             id: object::new(ctx),
             owner: tx_context::sender(ctx),
+            username: username,
             name: name,
             bio: bio,
             blob_id: blob_id,
@@ -107,7 +110,7 @@ module move_backend::linktree {
         profile: LinkTreeProfile,
         ctx: &mut TxContext
     ) {
-        let LinkTreeProfile { id, owner, name: _, bio: _, blob_id: _, links: _, theme: _ } = profile;
+        let LinkTreeProfile { id, owner, username: _, name: _, bio: _, blob_id: _, links: _, theme: _ } = profile;
         assert!(owner == tx_context::sender(ctx), ENotOwner);
         object::delete(id);
     }
