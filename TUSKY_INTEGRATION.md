@@ -1,165 +1,147 @@
-# Tusky Vault Entegrasyonu
+# 🦊 Tusky Vault Integration
 
-Bu proje, Tusky decentralized storage platformunu kullanarak kullanıcıların resimlerini güvenli bir vault'ta saklayabilmesi ve gelecekte NFT'ye dönüştürebilmesi için tasarlanmıştır.
+This project enables users to **securely store images** in a vault using the **Tusky decentralized storage platform**, with the future option to **convert them into NFTs**.
 
-## 🚀 Özellikler
+---
 
-- ✅ **Resim Yükleme**: Kullanıcılar resimlerini Tusky vault'a yükleyebilir
-- ✅ **Vault Yönetimi**: Tüm asset'leri görüntüleme, listeleme ve silme
-- ✅ **Güvenli Depolama**: End-to-end şifreli, decentralized storage (Walrus protokolü)
-- 🔜 **NFT Minting**: Asset'leri Sui blockchain'de NFT'ye dönüştürme (Tusky'de "coming soon")
-- 🔜 **Token Gated Access**: Private vault'lara token-bazlı erişim (2025'te gelecek)
+## 🚀 Features
 
-## 📦 Kurulum
+✅ **Image Upload:** Upload images directly to the Tusky vault  
+✅ **Vault Management:** View, list, and delete all stored assets  
+✅ **Secure Storage:** End-to-end encrypted, decentralized storage (Walrus Protocol)  
+🔜 **NFT Minting:** Convert assets into NFTs on the Sui blockchain (Tusky “coming soon”)  
+🔜 **Token Gated Access:** Token-based access to private vaults (coming in 2025)
 
-### 1. Dependencies Yükle
+---
 
+## 📦 Setup
+
+### 1️⃣ Install Dependencies
 ```bash
 cd frontend
 npm install
-```
+2️⃣ Set Environment Variables
+Create a .env file and add the following information:
 
-### 2. Environment Değişkenlerini Ayarla
-
-`.env` dosyası oluştur ve aşağıdaki bilgileri ekle:
-
-```env
+bash
+Kodu kopyala
 VITE_TUSKY_API_KEY=your_api_key_here
 VITE_TUSKY_VAULT_ID=your_vault_id_here
 VITE_TUSKY_API_URL=https://api.tusky.io
-```
+You can also copy from .env.example.
 
-**Not**: `.env.example` dosyasından kopyalayabilirsiniz.
-
-### 3. Development Server'ı Başlat
-
-```bash
+3️⃣ Start the Development Server
+bash
+Kodu kopyala
 npm run dev
-```
+🔑 Obtaining API Key and Vault ID
+Go to Tusky App
 
-## 🔑 API Anahtarı ve Vault ID Alma
+Log in with your Sui wallet or Google/Twitch account
 
-1. [Tusky App](https://app.tusky.io) 'e gidin
-2. Sui wallet veya Google/Twitch hesabınızla giriş yapın
-3. Yeni bir vault oluşturun veya mevcut vault'unuzu kullanın
-4. Settings > API Keys'den yeni bir API key oluşturun
-5. Vault ID'nizi URL'den alın: `https://app.tusky.io/vaults/YOUR_VAULT_ID/assets`
+Create a new vault or use an existing one
 
-## 📂 Dosya Yapısı
+Create a new API key from Settings > API Keys
 
-```
+Get your Vault ID from the URL:
+
+bash
+Kodu kopyala
+https://app.tusky.io/vaults/YOUR_VAULT_ID/assets
+📂 File Structure
+bash
+Kodu kopyala
 frontend/
 ├── src/
-│   ├── tuskyService.ts      # Tusky API servis fonksiyonları
-│   ├── VaultManager.tsx     # Vault yönetim komponenti
-│   ├── walrusService.ts     # Walrus storage servisi
-│   └── App.tsx             # Ana uygulama routing
-├── .env                    # Environment değişkenleri (git'te değil)
-└── .env.example           # Environment değişkenleri template
-```
+│   ├── tuskyService.ts      # Tusky API service functions
+│   ├── VaultManager.tsx     # Vault management component
+│   ├── walrusService.ts     # Walrus storage service
+│   └── App.tsx              # Main application routing
+├── .env                     # Environment variables (not committed)
+└── .env.example             # Environment variables template
+🔧 API Functions
+tuskyService.ts
 
-## 🔧 API Fonksiyonları
+Function	Description
+uploadImageToTusky(file)	Upload an image
+getVaultAssets()	Retrieve all assets
+getAsset(assetId)	Retrieve a specific asset
+deleteAsset(assetId)	Delete an asset
+mintNFTFromAsset(assetId, metadata)	Mint an NFT (coming soon)
+getRandomAssets(count)	Get random assets (for avatars)
 
-### `tuskyService.ts`
+🎨 Usage
+Accessing Vault Manager
+Visit:
 
-- `uploadImageToTusky(file: File)` - Resim yükle
-- `getVaultAssets()` - Tüm asset'leri getir
-- `getAsset(assetId: string)` - Belirli bir asset'i getir
-- `deleteAsset(assetId: string)` - Asset'i sil
-- `mintNFTFromAsset(assetId: string, metadata)` - NFT mint et (coming soon)
-- `getRandomAssets(count: number)` - Random asset'ler getir (avatar seçimi için)
-
-## 🎨 Kullanım
-
-### Vault Manager'a Erişim
-
-Tarayıcınızda şu adrese gidin:
-
-```
+bash
+Kodu kopyala
 http://localhost:5173/vault
-```
+Image Upload
+Click "Upload Image"
 
-### Resim Yükleme
+Select an image from your computer
 
-1. "Resim Yükle" butonuna tıklayın
-2. Bilgisayarınızdan bir resim seçin
-3. Resim otomatik olarak Tusky vault'a yüklenecek
+The image will automatically upload to your Tusky vault
 
-### NFT Oluşturma (Coming Soon)
+NFT Creation (Coming Soon)
+Click on an asset
 
-1. Bir asset'in üzerine tıklayın
-2. "NFT Yap" butonuna tıklayın
-3. NFT ismi ve açıklaması girin
-4. "NFT Oluştur" butonuna tıklayın
+Click "Make NFT"
 
-**Not**: NFT minting özelliği Tusky tarafından "coming soon" olarak işaretlenmiştir.
+Enter name and description
 
-## 🔐 Güvenlik
+Click "Create NFT"
 
-- API anahtarları `.env` dosyasında saklanır ve git'e commit edilmez
-- Tüm data end-to-end şifrelidir
-- Walrus decentralized storage protokolü kullanılır
-- Sui blockchain altyapısı
+🔐 Security
+API keys are stored securely in .env (not pushed to Git)
 
-## 📚 Kaynaklar
+All vault data is end-to-end encrypted
 
-- [Tusky Docs](https://docs.tusky.io)
-- [Tusky App](https://app.tusky.io)
-- [Walrus Protocol](https://docs.walrus.site)
-- [Sui Blockchain](https://sui.io)
+Uses the Walrus decentralized storage protocol
 
-## 🐛 Bilinen Sorunlar ve Çözümler
+Built on Sui blockchain infrastructure
 
-### 1. Walrus Testnet Çalışmıyor (Profile Upload Hatası)
+📚 Resources
+Tusky Docs
 
-**Sorun**: Walrus testnet API geçici olarak kullanılamıyor, resim yükleme başarısız oluyor.
+Tusky App
 
-**Çözüm**: Profile oluştururken 3 alternatif sunuyoruz:
+Walrus Protocol
 
-1. **Varsayılan Avatar Seçimi** (✅ En Kolay)
-   - Profile oluşturma ekranında 4 farklı varsayılan avatar var
-   - Herhangi birine tıklayarak seçin
-   - Walrus'a bağlı değil, SVG data URL kullanıyor
+Sui Blockchain
 
-2. **Walrus CLI ile Manuel Yükleme**
-   ```bash
-   # Walrus CLI kurun
-   cargo install walrus-cli
-   
-   # Resim yükleyin
-   walrus store resim.png
-   
-   # Aldığınız blob_id'yi profile formuna yapıştırın
-   ```
+🐛 Known Issues & Workarounds
+🧊 Walrus Testnet Down (Profile Upload Error)
+Issue: Uploads fail when Walrus Testnet is unavailable.
+Workarounds:
 
-3. **Walrus Testnet Düzelene Kadar Bekleyin**
-   - Testnet düzeldikten sonra "📤 Upload Image" butonu çalışacak
+Use Default Avatars (✅ Recommended) – 4 default SVG avatars are available
 
-### 2. Tusky Public API Mevcut Değil (404 Hatası)
+Manual Upload (CLI) –
 
-**Sorun**: Tusky'nin public API'si henüz tam olarak hazır değil. `/v1/vaults/{id}/assets` endpoint'i 404 hatası veriyor.
+bash
+Kodu kopyala
+cargo install walrus-cli
+walrus store image.png
+Then paste the blob_id into the profile form
 
-**Çözüm Seçenekleri**:
+Wait for Testnet Restoration – Upload button will resume automatically
 
-#### A) Tusky Web App Kullanımı (Mevcut Çözüm)
-Kod hazır ama API aktif olmadığı için direkt Tusky web app'ını kullanabilirsiniz:
-- https://app.tusky.io/vaults/YOUR_VAULT_ID/assets
-- Vault Manager'da "Tusky App'ı Aç" butonu ile direkt bağlantı
+🧩 Tusky Public API Unavailable (404 Error)
+Issue: Tusky’s public API is not yet live (/v1/vaults/{id}/assets returns 404).
+Solutions:
 
-#### B) Tusky TypeScript SDK Bekleme
-Tusky resmi TypeScript SDK release ettiğinde:
-```bash
-npm install @tusky/sdk  # Henüz mevcut değil
-```
+A) Use Tusky Web App directly → https://app.tusky.io/vaults/YOUR_VAULT_ID/assets
 
-#### C) Tusky API Dokumantasyonu İnceleme
-- https://docs.tusky.io/http-api (Resmi API dokümantasyonu bekleniyor)
-- API Key'in doğru scope'a sahip olduğundan emin olun
-- Endpoint formatını kontrol edin (belki `/api/v1/` veya farklı bir prefix)
+B) Wait for Tusky TypeScript SDK → npm install @tusky/sdk (coming soon)
 
-#### D) CORS Proxy Kullanımı
-Eğer API mevcut ama CORS sorunu varsa:
-```js
+C) Check API Docs for scope & endpoint updates
+
+D) Use a local proxy if CORS issues occur:
+
+ts
+Kodu kopyala
 // vite.config.ts
 export default defineConfig({
   server: {
@@ -172,35 +154,32 @@ export default defineConfig({
     }
   }
 });
-```
+🪙 NFT Minting & Token Gated Access
+NFT Minting: Ready in code, pending Tusky API activation
 
-### 3. NFT Minting
-**Durum**: Tusky'de "coming soon" 
-**Hazırlık**: Kod hazır, API aktif olunca çalışacak
+Token Gated Access: Planned release in 2025
 
-### 4. Token Gated Access
-**Durum**: 2025'te gelecek
+🚀 Quick Start (Despite Walrus/Tusky Issues)
+✅ Profile creation with default avatars works
+✅ Code is ready for full integration
+🚧 Use Tusky Web App for vault management until APIs are live
 
----
+Once APIs are restored:
 
-## 🚀 Hızlı Başlangıç (Walrus/Tusky Sorunları için)
+Image uploads → Active
 
-**Şu anda ne yapabilirsiniz:**
+Vault management → Functional
 
-1. ✅ **Profile Oluşturun**: Varsayılan avatarlarla profile oluşturma çalışıyor
-2. ✅ **Kod Hazır**: Tusky ve Walrus API'leri düzeldikten sonra otomatik çalışacak
-3. 🚧 **Vault Yönetimi**: Şimdilik https://app.tusky.io üzerinden kullanın
-**API'ler düzeldiğinde:**
-- Walrus'a direkt resim yükleme çalışacak
-- Tusky vault entegrasyonu otomatik aktif olacak
-- NFT minting (Tusky feature release'i bekleniyor)
+NFT minting → Available
 
-## 🤝 Katkıda Bulunma
+🤝 Contributing
+Verify API endpoints against official Tusky docs
 
-1. API endpoint'leri Tusky documentation'dan kontrol edilmeli
-2. NFT minting özellği aktif olduğunda `tuskyService.ts`'deki `mintNFTFromAsset` fonksiyonu güncellenmelidir
-3. Tusky TypeScript SDK release edildiğinde direkt HTTP istekleri yerine SDK kullanılmalıdır
+Update mintNFTFromAsset() once NFT minting API is live
 
-## 📝 Lisans
+Replace manual API calls with the Tusky SDK when released
 
-Bu proje 42 Hackathon kapsamında geliştirilmiştir.
+📝 License
+This project was developed as part of the 42 Hackathon.
+All rights reserved © 2025.
+
