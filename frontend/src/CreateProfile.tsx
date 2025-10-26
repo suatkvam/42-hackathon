@@ -3,9 +3,9 @@ import { useSignAndExecuteTransaction, useSuiClient } from "@mysten/dapp-kit";
 import { Transaction } from "@mysten/sui/transactions";
 import { PACKAGE_ID, MODULE_NAME, REGISTRY_ID } from "./constants";
 import { uploadImageToWalrus, getWalrusImageUrl, uploadProfileToWalrus, ProfileContent } from "./walrusService";
-import { uploadImageToCloudinary, getOptimizedCloudinaryUrl } from "./cloudinaryService";
+import { uploadImageToCloudinary } from "./cloudinaryService";
 import { getTheme, getThemeNames } from "./themes";
-import { getRandomAvatarsForUser, avatarIdToString, parseAvatarId } from "./avatarNftService";
+import { getRandomAvatarsForUser, avatarIdToString } from "./avatarNftService";
 
 interface CreateProfileProps {
   onClose: () => void;
@@ -28,7 +28,7 @@ export default function CreateProfile({ onClose, onSuccess, isEditing = false, p
   const [avatarBlobId, setAvatarBlobId] = useState(existingProfile?.avatar || "");  // Walrus blob ID
   const [avatarUrl, setAvatarUrl] = useState("");  // Cloudinary URL
   const [uploadMethod, setUploadMethod] = useState<"walrus" | "cloudinary">("cloudinary");  // Upload method
-  const [links, setLinks] = useState<Array<{ label: string; url: string }>>([]);  // Links array
+  const [links] = useState<Array<{ label: string; url: string }>>([]);  // Links array
   const [theme, setTheme] = useState(existingProfile?.theme || "default");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -52,16 +52,14 @@ export default function CreateProfile({ onClose, onSuccess, isEditing = false, p
     setLoadingAvatars(true);
     try {
       // Fetch assigned avatar IDs from blockchain
-      const result = await suiClient.devInspectTransactionBlock({
-        transactionBlock: {
-          kind: 'moveCall',
-          data: {
-            packageObjectId: PACKAGE_ID,
-            module: MODULE_NAME,
-            function: 'get_assigned_avatar_ids',
-            arguments: [REGISTRY_ID],
-          },
-        },
+      const tx = new Transaction();
+      tx.moveCall({
+        target: `${PACKAGE_ID}::${MODULE_NAME}::get_assigned_avatar_ids`,
+        arguments: [tx.object(REGISTRY_ID)],
+      });
+      
+      await suiClient.devInspectTransactionBlock({
+        transactionBlock: tx,
         sender: '0x0000000000000000000000000000000000000000000000000000000000000000',
       });
       
@@ -333,7 +331,7 @@ export default function CreateProfile({ onClose, onSuccess, isEditing = false, p
                 <img
                   src={previewUrl}
                   alt="Avatar preview"
-                  onError={(e) => {
+                  onError={() => {
                     console.error("Failed to load image from:", previewUrl);
                     setError("Failed to fetch image from Walrus. Please check the blob ID or upload a new image.");
                     setPreviewUrl("");

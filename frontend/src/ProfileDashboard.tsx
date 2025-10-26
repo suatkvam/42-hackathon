@@ -82,8 +82,10 @@ export default function ProfileDashboard() {
 
         const profileObj = profileObjects.length > 0 ? profileObjects[profileObjects.length - 1] : null;
 
-        if (profileObj && profileObj.data?.content?.fields) {
-          const fields = profileObj.data.content.fields;
+        if (profileObj && profileObj.data?.content) {
+          const content = profileObj.data.content;
+          if ('fields' in content) {
+          const fields = content.fields as any;
           const contentBlobId = fields.content_blob_id;
           const themeName = fields.theme || "default";
           
@@ -143,6 +145,7 @@ export default function ProfileDashboard() {
             });
             setCurrentTheme(getTheme(themeName));
             localStorage.setItem("suitree_theme", themeName);
+          }
           }
         } else {
           setShowCreateProfile(true);
@@ -446,11 +449,16 @@ export default function ProfileDashboard() {
       });
 
       const profileObj = profileObjects.length > 0 ? profileObjects[profileObjects.length - 1] : null;
-      if (!profileObj || !profileObj.data?.content?.fields) {
+      if (!profileObj || !profileObj.data?.content) {
         throw new Error("Profile not found");
       }
+      
+      const content = profileObj.data.content;
+      if (!('fields' in content)) {
+        throw new Error("Invalid profile structure");
+      }
 
-      const contentBlobId = profileObj.data.content.fields.content_blob_id;
+      const contentBlobId = (content.fields as any).content_blob_id;
 
       // Update only theme on blockchain
       const tx = new Transaction();
@@ -2348,10 +2356,3 @@ const inputStyle: React.CSSProperties = {
   outline: "none",
   transition: "border-color 0.2s"
 };
-
-// CSS for placeholder styling
-const inputPlaceholderStyle = `
-  input::placeholder, textarea::placeholder {
-    opacity: 0.5;
-  }
-`;

@@ -4,7 +4,6 @@ import { Transaction } from "@mysten/sui/transactions";
 import { PACKAGE_ID, MODULE_NAME, REGISTRY_ID } from "./constants";
 import { getTheme, getThemeNames } from "./themes";
 import { uploadProfileToWalrus, ProfileContent } from "./walrusService";
-import { uploadImageToCloudinary } from "./cloudinaryService";
 import { FaStar } from "react-icons/fa";
 
 interface Link {
@@ -342,7 +341,7 @@ export default function CreateProfileSimple({ onClose, onSuccess }: CreateProfil
               </div>
             )}
 
-            {links.map((link, index) => (
+              {links.map((link) => (
               <div 
                 key={link.id} 
                 style={{ 

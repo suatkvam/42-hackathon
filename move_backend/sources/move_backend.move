@@ -5,8 +5,13 @@ module move_backend::linktree {
     use sui::dynamic_field as df; 
     use sui::transfer::share_object;
     use sui::vec_map::{Self, VecMap};
+    use sui::package;
+    use sui::display;
 
     // --- Structs (Storage Structure KEPT AS IS) ---
+
+    // One-time witness for Display creation
+    public struct LINKTREE has drop {}
 
     // V3: Optimized storage - profile data stored in Walrus
     public struct LinkTreeProfile has key, store {
@@ -31,6 +36,37 @@ module move_backend::linktree {
     const EReservedUsername: u64 = 1;
     const EUsernameAlreadyTaken: u64 = 2;
     const EAvatarAlreadyAssigned: u64 = 3;
+
+    // --- Init Function (Module initializer) ---
+    fun init(otw: LINKTREE, ctx: &mut TxContext) {
+        let keys = vector[
+            std::string::utf8(b"name"),
+            std::string::utf8(b"description"),
+            std::string::utf8(b"link"),
+            std::string::utf8(b"image_url"),
+            std::string::utf8(b"project_url"),
+            std::string::utf8(b"creator"),
+        ];
+
+        let values = vector[
+            std::string::utf8(b"42Tree Profile - {username}"),
+            std::string::utf8(b"Decentralized link-in-bio profile for {username} on 42Tree"),
+            std::string::utf8(b"https://42tree.walrus.site/{username}"),
+            std::string::utf8(b"https://aggregator.walrus-testnet.walrus.space/v1/{content_blob_id}"),
+            std::string::utf8(b"https://42tree.walrus.site"),
+            std::string::utf8(b"42Tree"),
+        ];
+
+        let publisher = package::claim(otw, ctx);
+        let mut display = display::new_with_fields<LinkTreeProfile>(
+            &publisher, keys, values, ctx
+        );
+        
+        display::update_version(&mut display);
+
+        transfer::public_transfer(publisher, tx_context::sender(ctx));
+        transfer::public_transfer(display, tx_context::sender(ctx));
+    }
 
     // --- Functions (V2) ---
 
@@ -274,8 +310,7 @@ module move_backend::linktree {
         };
         
         let avatars = df::borrow<vector<u8>, VecMap<u64, address>>(&registry.id, b"assigned_avatars");
-        let keys = vec_map::keys(avatars);
-        *keys
+        vec_map::keys(avatars)
     }
 
 }

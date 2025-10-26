@@ -1,4 +1,3 @@
-import React from "react";
 import { useSuiClientQuery } from "@mysten/dapp-kit";
 import { useSearchParams } from "react-router-dom";
 
@@ -13,20 +12,21 @@ export default function ProfileView() {
 
   if (isLoading) return <p>Loading...</p>;
 
-  const fields = data?.data?.content?.fields;
+  const content = data?.data?.content;
+  const fields = content && 'fields' in content ? (content.fields as any) : null;
   if (!fields) return <p>Profil bulunamadı.</p>;
 
   return (
     <div style={{ fontFamily: "sans-serif", padding: "20px" }}>
-      <h2>{fields.name}</h2>
-      <p>{fields.bio}</p>
+      <h2>{fields.name as string}</h2>
+      <p>{fields.bio as string}</p>
       <img
-        src={`https://ipfs.io/ipfs/${fields.avatar_cid}`}
+        src={`https://ipfs.io/ipfs/${fields.avatar_cid as string}`}
         alt="avatar"
         width="120"
         style={{ borderRadius: "50%" }}
       />
-      <p>Tema: {fields.theme}</p>
+      <p>Tema: {fields.theme as string}</p>
     </div>
   );
 }

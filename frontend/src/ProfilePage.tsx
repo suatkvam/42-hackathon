@@ -69,8 +69,10 @@ export default function ProfilePage() {
           ? profileObjects[profileObjects.length - 1] 
           : null;
 
-        if (profileObj && profileObj.data?.content?.fields) {
-          const fields = profileObj.data.content.fields;
+        if (profileObj && profileObj.data?.content) {
+          const content = profileObj.data.content;
+          if ('fields' in content) {
+          const fields = content.fields as any;
           console.log("✅ Profile found!", fields);
           
           // Support both old field name (avatar_cid) and new field name (blob_id)
@@ -96,6 +98,7 @@ export default function ProfilePage() {
             links: parsedLinks,
             theme: fields.theme,
           });
+          }
         } else {
           console.log("❌ No profile found for address:", account.address);
           setProfileError("No profile found. Create one to get started!");

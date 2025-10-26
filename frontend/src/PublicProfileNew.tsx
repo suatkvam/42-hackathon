@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useSuiClient } from "@mysten/dapp-kit";
 import { useParams, useNavigate } from "react-router-dom";
 import { getWalrusImageUrl, fetchProfileFromWalrus } from "./walrusService";
-import { PACKAGE_ID, REGISTRY_ID } from "./constants";
+import { REGISTRY_ID } from "./constants";
 import { getTheme, type Theme } from "./themes";
 import { trackLinkClick } from "./analyticsService";
 import { FaTree, FaFrown, FaHome } from "react-icons/fa";
@@ -31,6 +31,21 @@ export default function PublicProfileNew() {
 
       try {
         console.log("Looking up username:", username);
+        
+        // Check if it's a .sui domain
+        if (username.endsWith('.sui')) {
+          console.log("Resolving SuiNS domain:", username);
+          try {
+            // SuiNS resolution would go here
+            // For now, try to load by base username without .sui
+            const baseUsername = username.replace('.sui', '');
+            console.log("Trying base username:", baseUsername);
+            // Continue with regular username lookup
+          } catch (suinsErr) {
+            console.error("SuiNS resolution failed:", suinsErr);
+          }
+        }
+        
         console.log("Using REGISTRY_ID:", REGISTRY_ID);
 
         // Check if username exists in registry using dynamic field

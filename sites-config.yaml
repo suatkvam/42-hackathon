@@ -6,7 +6,7 @@ contexts:
     staking_object: 0xbe46180321c30aab2f8b3501e24048377287fa708018a5b7c2792b35fe339ee3
     general:
        wallet_env: testnet
-       walrus_context: testnet # Assumes a Walrus CLI setup with a multi-config containing the "testnet" context.
+       # walrus_context: testnet # Assumes a Walrus CLI setup with a multi-config containing the "testnet" context.
        walrus_package: 0xd84704c17fc870b8764832c535aa6b11f21a95cd6f5bb38a9b07d2cf42220c66
        # wallet_address: 0x1234...
        # rpc_url: https://fullnode.testnet.sui.io:443

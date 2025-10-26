@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useSuiClient } from "@mysten/dapp-kit";
 import { useParams, useNavigate } from "react-router-dom";
+import { Transaction } from "@mysten/sui/transactions";
 import { getWalrusImageUrl } from "./walrusService";
 import { PACKAGE_ID, REGISTRY_ID } from "./constants";
 import { getTheme, type Theme } from "./themes";
@@ -34,15 +35,17 @@ export default function PublicProfile() {
         console.log("Looking up username:", username);
 
         // Call the Move function to get profile ID by username
+        const txBlock = new Transaction();
+        txBlock.moveCall({
+          target: `${PACKAGE_ID}::linktree::get_profile_id_by_username`,
+          arguments: [
+            txBlock.object(REGISTRY_ID),
+            txBlock.pure.string(username),
+          ],
+        });
+        
         const tx = await suiClient.devInspectTransactionBlock({
-          transactionBlock: {
-            kind: "moveCall",
-            target: `${PACKAGE_ID}::linktree::get_profile_id_by_username`,
-            arguments: [
-              REGISTRY_ID,
-              username,
-            ],
-          },
+          transactionBlock: txBlock,
           sender: "0x0000000000000000000000000000000000000000000000000000000000000000",
         });
 
@@ -50,7 +53,8 @@ export default function PublicProfile() {
 
         // Parse the returned profile ID
         if (tx.results && tx.results[0]?.returnValues) {
-          const profileId = tx.results[0].returnValues[0][0];
+          const profileIdBytes = tx.results[0].returnValues[0][0] as number[];
+          const profileId = "0x" + profileIdBytes.map(b => b.toString(16).padStart(2, '0')).join('');
           
           // Fetch the profile object
           const profileObj = await suiClient.getObject({

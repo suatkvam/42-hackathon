@@ -217,8 +217,6 @@ function getWeekClicks(clicksByDay: Record<string, number>): number {
 
 // Get device type from user agent
 function getDeviceType(userAgent: string): 'mobile' | 'desktop' | 'tablet' | 'other' {
-  const ua = userAgent.toLowerCase();
-  
   if (/(tablet|ipad|playbook|silk)|(android(?!.*mobile))/i.test(userAgent)) {
     return 'tablet';
   }

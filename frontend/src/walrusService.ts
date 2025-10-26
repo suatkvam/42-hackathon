@@ -1,9 +1,9 @@
 // Walrus API Configuration
-// Note: Walrus testnet might be down or API might have changed
-// Alternative endpoints to try:
 const WALRUS_AGGREGATOR = "https://aggregator.walrus-testnet.walrus.space";
-const WALRUS_PUBLISHER = "https://publisher.walrus-testnet.walrus.space";
 const WALRUS_API_VERSION = "v1";
+
+// Backend proxy for Walrus CLI uploads
+const WALRUS_BACKEND = import.meta.env.VITE_WALRUS_BACKEND || "http://localhost:3001";
 
 // Development mode - bypass Walrus when developing locally
 const DEV_MODE = import.meta.env.DEV || false;
@@ -30,11 +30,14 @@ export async function uploadImageToWalrus(file: File): Promise<string> {
   }
 
   try {
-    console.log("Uploading file to Walrus:", file.name, file.size);
+    console.log("Uploading file to Walrus via backend:", file.name, file.size);
 
-    const response = await fetch(`${WALRUS_PUBLISHER}/${WALRUS_API_VERSION}/store?epochs=5`, {
-      method: "PUT",
-      body: file,
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch(`${WALRUS_BACKEND}/api/walrus/upload-image`, {
+      method: "POST",
+      body: formData,
     });
 
     console.log("Walrus response status:", response.status);
@@ -48,13 +51,9 @@ export async function uploadImageToWalrus(file: File): Promise<string> {
     const data = await response.json();
     console.log("Walrus response data:", data);
     
-    // Extract blob_id from response
-    if (data.newlyCreated?.blobObject?.blobId) {
-      console.log("Successfully uploaded, blob ID:", data.newlyCreated.blobObject.blobId);
-      return data.newlyCreated.blobObject.blobId;
-    } else if (data.alreadyCertified?.blobId) {
-      console.log("File already exists, blob ID:", data.alreadyCertified.blobId);
-      return data.alreadyCertified.blobId;
+    if (data.blobId) {
+      console.log("Successfully uploaded, blob ID:", data.blobId);
+      return data.blobId;
     }
     
     throw new Error("Unable to extract blob_id from response: " + JSON.stringify(data));
@@ -122,16 +121,14 @@ export async function uploadProfileToWalrus(profileData: ProfileContent): Promis
   }
 
   try {
-    console.log("Uploading profile data to Walrus:", profileData);
+    console.log("Uploading profile data to Walrus via backend:", profileData);
 
-    // Convert profile data to JSON blob
-    const jsonBlob = new Blob([JSON.stringify(profileData)], {
-      type: "application/json",
-    });
-
-    const response = await fetch(`${WALRUS_PUBLISHER}/${WALRUS_API_VERSION}/store?epochs=5`, {
-      method: "PUT",
-      body: jsonBlob,
+    const response = await fetch(`${WALRUS_BACKEND}/api/walrus/upload-json`, {
+      method: "POST",
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(profileData),
     });
 
     console.log("Walrus profile upload response status:", response.status);
@@ -145,13 +142,9 @@ export async function uploadProfileToWalrus(profileData: ProfileContent): Promis
     const data = await response.json();
     console.log("Walrus profile response data:", data);
     
-    // Extract blob_id from response
-    if (data.newlyCreated?.blobObject?.blobId) {
-      console.log("Successfully uploaded profile, blob ID:", data.newlyCreated.blobObject.blobId);
-      return data.newlyCreated.blobObject.blobId;
-    } else if (data.alreadyCertified?.blobId) {
-      console.log("Profile already exists, blob ID:", data.alreadyCertified.blobId);
-      return data.alreadyCertified.blobId;
+    if (data.blobId) {
+      console.log("Successfully uploaded profile, blob ID:", data.blobId);
+      return data.blobId;
     }
     
     throw new Error("Unable to extract blob_id from response: " + JSON.stringify(data));

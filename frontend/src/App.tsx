@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { HashRouter, Routes, Route } from "react-router-dom";
 import LandingPage from "./LandingPage";
 import ProfilePage from "./ProfilePage";
 import ProfileDashboard from "./ProfileDashboard";
@@ -7,7 +7,7 @@ import VaultManager from "./VaultManager";
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/dashboard" element={<ProfileDashboard />} />
@@ -15,6 +15,6 @@ export default function App() {
         <Route path="/vault" element={<VaultManager />} />
         <Route path="/:username" element={<PublicProfileNew />} />
       </Routes>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
