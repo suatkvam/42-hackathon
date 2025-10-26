@@ -2,7 +2,7 @@ import { ConnectButton, useCurrentAccount, useDisconnectWallet } from "@mysten/d
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import { getTheme, getThemeNames, type Theme } from "./themes";
-import { FaLink, FaLock, FaPalette, FaBriefcase, FaTree } from "react-icons/fa";
+import { FaLink, FaLock, FaPalette, FaBriefcase, FaTree, FaSearch } from "react-icons/fa";
 
 export default function LandingPage() {
   const account = useCurrentAccount();
@@ -14,6 +14,7 @@ export default function LandingPage() {
   });
   const [showThemeMenu, setShowThemeMenu] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [searchUsername, setSearchUsername] = useState("");
   const sliderRef = useRef<HTMLDivElement>(null);
 
   const features = [
@@ -50,6 +51,13 @@ export default function LandingPage() {
     setCurrentTheme(theme);
     localStorage.setItem("suitree_theme", themeName);
     setShowThemeMenu(false);
+  };
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchUsername.trim()) {
+      navigate(`/${searchUsername.trim().toLowerCase()}`);
+    }
   };
 
   return (
@@ -255,6 +263,89 @@ export default function LandingPage() {
             Create your profile on the blockchain. Share your links, build your presence,
             and own your data with 42Tree - powered by Sui Network and Walrus Storage.
           </p>
+
+          {/* Search Bar */}
+          <form
+            onSubmit={handleSearchSubmit}
+            style={{
+              marginBottom: "50px",
+              width: "100%",
+              maxWidth: "500px",
+              margin: "0 auto 50px",
+            }}
+          >
+            <div
+              style={{
+                position: "relative",
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              <FaSearch
+                style={{
+                  position: "absolute",
+                  left: "20px",
+                  color: "rgba(100, 100, 100, 0.6)",
+                  fontSize: "18px",
+                  pointerEvents: "none",
+                }}
+              />
+              <input
+                type="text"
+                value={searchUsername}
+                onChange={(e) => setSearchUsername(e.target.value)}
+                placeholder="Search for a profile... (e.g., john_doe)"
+                style={{
+                  width: "100%",
+                  padding: "16px 20px 16px 50px",
+                  fontSize: "16px",
+                  borderRadius: "12px",
+                  border: "3px solid rgba(255, 255, 255, 0.3)",
+                  backgroundColor: "rgba(255, 255, 255, 0.95)",
+                  color: "#333",
+                  outline: "none",
+                  transition: "all 0.3s",
+                  fontFamily: "'Space Grotesk', sans-serif",
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.backgroundColor = "white";
+                  e.currentTarget.style.border = "3px solid #4299e1";
+                  e.currentTarget.style.boxShadow = "0 4px 12px rgba(66, 153, 225, 0.3)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.95)";
+                  e.currentTarget.style.border = "3px solid rgba(255, 255, 255, 0.3)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
+              />
+              <button
+                type="submit"
+                style={{
+                  position: "absolute",
+                  right: "6px",
+                  padding: "10px 24px",
+                  backgroundColor: currentTheme.colors.primary,
+                  color: "white",
+                  border: "none",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  fontWeight: "bold",
+                  fontSize: "14px",
+                  transition: "all 0.2s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = "scale(1.05)";
+                  e.currentTarget.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.2)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = "scale(1)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
+              >
+                Search
+              </button>
+            </div>
+          </form>
 
           {/* Features Slider */}
           <div

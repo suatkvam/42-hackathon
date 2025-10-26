@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSignAndExecuteTransaction } from "@mysten/dapp-kit";
 import { Transaction } from "@mysten/sui/transactions";
 import { PACKAGE_ID, MODULE_NAME, REGISTRY_ID } from "./constants";
@@ -23,12 +23,22 @@ export default function CreateProfileSimple({ onClose, onSuccess }: CreateProfil
   const [name, setName] = useState("");
   const [bio, setBio] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");  // Cloudinary URL for avatar
+  const [selectedAvatar, setSelectedAvatar] = useState<string | null>(null);
+  const [randomAvatars, setRandomAvatars] = useState<string[]>([]);
   const [links, setLinks] = useState<Link[]>([]);
   const [theme, setTheme] = useState("default");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const { mutate: signAndExecute } = useSignAndExecuteTransaction();
+
+  // Generate 3 random avatars on component mount
+  useEffect(() => {
+    const allAvatars = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'];
+    const shuffled = [...allAvatars].sort(() => Math.random() - 0.5);
+    const selected = shuffled.slice(0, 3);
+    setRandomAvatars(selected);
+  }, []);
 
   const addLink = () => {
     setLinks([...links, { id: Date.now().toString(), label: "", url: "" }]);
@@ -230,6 +240,69 @@ export default function CreateProfileSimple({ onClose, onSuccess }: CreateProfil
               }}
               placeholder="Tell us about yourself..."
             />
+          </div>
+
+          {/* Avatar Gift Selector */}
+          <div>
+            <label style={{ display: "block", marginBottom: "10px", fontWeight: "bold", fontSize: "14px" }}>
+              Choose Your Gift Avatar NFT 🎁
+            </label>
+            <div style={{ 
+              display: "grid", 
+              gridTemplateColumns: "repeat(3, 1fr)", 
+              gap: "15px",
+              padding: "15px",
+              backgroundColor: "#f7fafc",
+              borderRadius: "12px",
+            }}>
+              {randomAvatars.map((avatar) => (
+                <div
+                  key={avatar}
+                  onClick={() => {
+                    const avatarPath = `/avatars/${avatar}.png`;
+                    setSelectedAvatar(avatarPath);
+                    setAvatarUrl(avatarPath);
+                  }}
+                  style={{
+                    cursor: "pointer",
+                    borderRadius: "16px",
+                    overflow: "hidden",
+                    border: selectedAvatar === `/avatars/${avatar}.png` ? "4px solid #4299e1" : "3px solid #e2e8f0",
+                    transition: "all 0.3s",
+                    backgroundColor: "white",
+                    boxShadow: selectedAvatar === `/avatars/${avatar}.png` ? "0 8px 16px rgba(66, 153, 225, 0.3)" : "0 2px 8px rgba(0,0,0,0.1)",
+                    transform: selectedAvatar === `/avatars/${avatar}.png` ? "scale(1.05)" : "scale(1)",
+                  }}
+                >
+                  <img
+                    src={`/avatars/${avatar}.png`}
+                    alt={`Gift Avatar ${avatar}`}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      display: "block",
+                      aspectRatio: "1",
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+            <div style={{
+              marginTop: "10px",
+              padding: "12px",
+              backgroundColor: "#fef5e7",
+              border: "2px solid #f39c12",
+              borderRadius: "8px",
+              fontSize: "13px",
+              color: "#6e4a1f",
+            }}>
+              {selectedAvatar ? (
+                <><strong>✅ Gift Selected!</strong> This unique NFT will be minted and sent to your wallet. It's soulbound and stays with you forever!</>
+              ) : (
+                <><strong>🎁 Choose Your Gift:</strong> Pick one of these 3 randomly selected avatar NFTs. Once chosen, it will be yours forever!</>
+              )}
+            </div>
           </div>
 
           {/* Links */}
