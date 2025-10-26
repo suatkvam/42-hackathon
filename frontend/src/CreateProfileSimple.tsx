@@ -5,6 +5,7 @@ import { PACKAGE_ID, MODULE_NAME, REGISTRY_ID } from "./constants";
 import { getTheme, getThemeNames } from "./themes";
 import { uploadProfileToWalrus, ProfileContent } from "./walrusService";
 import { uploadImageToCloudinary } from "./cloudinaryService";
+import { FaStar } from "react-icons/fa";
 
 interface Link {
   id: string;
@@ -147,8 +148,8 @@ export default function CreateProfileSimple({ onClose, onSuccess }: CreateProfil
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 style={{ marginTop: 0, marginBottom: "20px" }}>
-          ✨ Create Profile
+        <h2 style={{ marginTop: 0, marginBottom: "20px", display: "flex", alignItems: "center", gap: "8px" }}>
+          <FaStar /> Create Profile
         </h2>
         
         <form 

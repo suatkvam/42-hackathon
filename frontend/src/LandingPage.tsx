@@ -2,6 +2,7 @@ import { ConnectButton, useCurrentAccount, useDisconnectWallet } from "@mysten/d
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import { getTheme, getThemeNames, type Theme } from "./themes";
+import { FaLink, FaLock, FaPalette, FaBriefcase, FaTree } from "react-icons/fa";
 
 export default function LandingPage() {
   const account = useCurrentAccount();
@@ -17,17 +18,17 @@ export default function LandingPage() {
 
   const features = [
     {
-      icon: "🔗",
+      icon: <FaLink />,
       title: "One Link, Infinite Possibilities",
       description: "Share all your important links in one place"
     },
     {
-      icon: "🔒",
+      icon: <FaLock />,
       title: "Blockchain Secured",
       description: "Your data is stored on Sui blockchain"
     },
     {
-      icon: "🎨",
+      icon: <FaPalette />,
       title: "Customizable",
       description: "Personalize with themes and avatars"
     }
@@ -56,7 +57,7 @@ export default function LandingPage() {
       style={{
         minHeight: "100vh",
         background: currentTheme.gradient,
-        fontFamily: "Poppins, sans-serif",
+        fontFamily: "'Space Grotesk', sans-serif",
         display: "flex",
         flexDirection: "column",
       }}
@@ -76,9 +77,12 @@ export default function LandingPage() {
           color: "white", 
           margin: 0, 
           fontSize: "clamp(20px, 5vw, 28px)", 
-          fontWeight: "bold" 
+          fontWeight: "bold",
+          display: "flex",
+          alignItems: "center",
+          gap: "8px"
         }}>
-          🌳 42Tree
+          <FaTree /> 42Tree
         </h1>
         <div style={{ display: "flex", gap: "15px", alignItems: "center", flexWrap: "wrap" }}>
           {/* Theme Selector */}
@@ -97,7 +101,7 @@ export default function LandingPage() {
                 backdropFilter: "blur(10px)",
               }}
             >
-              🎨 Themes
+              <FaPalette style={{ display: "inline", marginRight: "8px" }} /> Themes
             </button>
             {showThemeMenu && (
               <div
@@ -173,7 +177,7 @@ export default function LandingPage() {
                 e.currentTarget.style.color = currentTheme.colors.primary;
               }}
             >
-              🌳 Dashboard
+              <FaTree style={{ display: "inline", marginRight: "8px" }} /> Dashboard
             </button>
           )}
           {account ? (
@@ -189,7 +193,7 @@ export default function LandingPage() {
                 alignItems: "center",
                 gap: "8px"
               }}>
-                💼 Wallet: {account.address.slice(0, 6)}...{account.address.slice(-4)}
+                <FaBriefcase style={{ display: "inline", marginRight: "8px" }} /> Wallet: {account.address.slice(0, 6)}...{account.address.slice(-4)}
               </div>
               <button
                 onClick={() => disconnect()}
@@ -290,10 +294,9 @@ export default function LandingPage() {
                       display: "flex",
                       flexDirection: "column",
                       justifyContent: "center",
-                      alignItems: "center",
-                    }}
-                  >
-                    <div style={{ fontSize: "80px", marginBottom: "20px" }}>{feature.icon}</div>
+                    alignItems: "center",
+                  }}>
+                  <div style={{ fontSize: "80px", marginBottom: "20px", color: "white" }}>{feature.icon}</div>
                     <h3 style={{ 
                       color: "white", 
                       marginBottom: "15px", 
