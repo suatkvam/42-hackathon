@@ -24,6 +24,9 @@ export interface AnalyticsStats {
   clicksByDay: Record<string, number>;
   topLinks: Array<{ label: string; clicks: number }>;
   recentClicks: LinkClick[];
+  clicksByReferrer: Record<string, number>;
+  clicksByDevice: { mobile: number; desktop: number; tablet: number; other: number };
+  clicksByHour: Record<number, number>;
 }
 
 // Track a link click
@@ -80,12 +83,18 @@ export async function getAnalytics(profileId: string): Promise<AnalyticsStats | 
         clicksByDay: {},
         topLinks: [],
         recentClicks: [],
+        clicksByReferrer: {},
+        clicksByDevice: { mobile: 0, desktop: 0, tablet: 0, other: 0 },
+        clicksByHour: {},
       };
     }
 
     // Aggregate data
     const clicksByLink: Record<string, number> = {};
     const clicksByDay: Record<string, number> = {};
+    const clicksByReferrer: Record<string, number> = {};
+    const clicksByDevice = { mobile: 0, desktop: 0, tablet: 0, other: 0 };
+    const clicksByHour: Record<number, number> = {};
 
     data.forEach((click: any) => {
       // Count by link
@@ -94,6 +103,19 @@ export async function getAnalytics(profileId: string): Promise<AnalyticsStats | 
       // Count by day
       const day = new Date(click.timestamp).toLocaleDateString();
       clicksByDay[day] = (clicksByDay[day] || 0) + 1;
+
+      // Count by referrer
+      const referrer = click.referrer || 'direct';
+      const domain = getReferrerDomain(referrer);
+      clicksByReferrer[domain] = (clicksByReferrer[domain] || 0) + 1;
+
+      // Count by device
+      const deviceType = getDeviceType(click.user_agent || '');
+      clicksByDevice[deviceType]++;
+
+      // Count by hour
+      const hour = new Date(click.timestamp).getHours();
+      clicksByHour[hour] = (clicksByHour[hour] || 0) + 1;
     });
 
     // Get top links
@@ -108,6 +130,9 @@ export async function getAnalytics(profileId: string): Promise<AnalyticsStats | 
       clicksByDay,
       topLinks,
       recentClicks: data.slice(0, 10),
+      clicksByReferrer,
+      clicksByDevice,
+      clicksByHour,
     };
   } catch (err) {
     console.error('Analytics fetch error:', err);
@@ -188,4 +213,67 @@ function getWeekClicks(clicksByDay: Record<string, number>): number {
   }
 
   return total;
+}
+
+// Get device type from user agent
+function getDeviceType(userAgent: string): 'mobile' | 'desktop' | 'tablet' | 'other' {
+  const ua = userAgent.toLowerCase();
+  
+  if (/(tablet|ipad|playbook|silk)|(android(?!.*mobile))/i.test(userAgent)) {
+    return 'tablet';
+  }
+  
+  if (/mobile|iphone|ipod|android|blackberry|opera mini|opera mobi|skyfire|maemo|windows phone|palm|iemobile|symbian|symbianos|fennec/i.test(userAgent)) {
+    return 'mobile';
+  }
+  
+  if (userAgent) {
+    return 'desktop';
+  }
+  
+  return 'other';
+}
+
+// Extract domain from referrer URL
+function getReferrerDomain(referrer: string): string {
+  if (!referrer || referrer === 'direct') return 'Direct';
+  
+  try {
+    const url = new URL(referrer);
+    const hostname = url.hostname;
+    
+    // Map common domains to readable names
+    const domainMap: Record<string, string> = {
+      'instagram.com': 'Instagram',
+      'twitter.com': 'Twitter / X',
+      'x.com': 'Twitter / X',
+      'facebook.com': 'Facebook',
+      'linkedin.com': 'LinkedIn',
+      'reddit.com': 'Reddit',
+      'youtube.com': 'YouTube',
+      'tiktok.com': 'TikTok',
+      'pinterest.com': 'Pinterest',
+      'discord.com': 'Discord',
+      'telegram.org': 'Telegram',
+      'google.com': 'Google Search',
+      'bing.com': 'Bing Search',
+    };
+    
+    // Check for exact matches first
+    if (domainMap[hostname]) {
+      return domainMap[hostname];
+    }
+    
+    // Check for subdomains
+    for (const [domain, name] of Object.entries(domainMap)) {
+      if (hostname.endsWith(domain)) {
+        return name;
+      }
+    }
+    
+    // Return cleaned hostname
+    return hostname.replace('www.', '');
+  } catch {
+    return 'Other';
+  }
 }

@@ -185,7 +185,7 @@ export default function ProfilePage() {
           style={{ color: "white", margin: 0, fontSize: "24px", cursor: "pointer" }}
           onClick={() => navigate("/")}
         >
-          🌳 SuiTree
+          🌳 42Tree
         </h1>
         <div style={{ display: "flex", gap: "15px", alignItems: "center" }}>
           {/* Delete Profile button */}

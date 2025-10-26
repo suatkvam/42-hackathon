@@ -50,6 +50,15 @@
       #__next {
         isolation: isolate;
       }
+      
+      /* Sui ConnectButton customization */
+      [data-dapp-kit-connected] {
+        font-weight: 600 !important;
+      }
+      
+      [data-dapp-kit-connected]::before {
+        content: '💼 ' !important;
+      }
     </style>
   </head>
   <body>

@@ -87,6 +87,7 @@ export default function PublicProfileNew() {
                 name: profileContent.name,
                 bio: profileContent.bio,
                 avatar: profileContent.avatar_blob_id,
+                avatarUrl: profileContent.avatar_url,  // Cloudinary URL
                 links: profileContent.links.map(link => ({
                   key: link.label,
                   value: link.url,
@@ -233,7 +234,7 @@ export default function PublicProfileNew() {
           e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.15)";
         }}
       >
-        🌳 SuiTree
+        🌳 42Tree
       </div>
 
       {/* Profile Card */}
@@ -266,9 +267,12 @@ export default function PublicProfileNew() {
             justifyContent: "center",
             fontSize: "48px"
           }}>
-            {profile?.avatar ? (
+            {(profile?.avatarUrl || profile?.avatar) ? (
               <img
-                src={profile.avatar.startsWith("data:") ? profile.avatar : getWalrusImageUrl(profile.avatar)}
+                src={
+                  profile.avatarUrl || 
+                  (profile.avatar?.startsWith("data:") ? profile.avatar : getWalrusImageUrl(profile.avatar))
+                }
                 alt="avatar"
                 style={{
                   width: "100%",
@@ -418,7 +422,7 @@ export default function PublicProfileNew() {
               e.currentTarget.style.borderColor = "rgba(255,255,255,0.3)";
             }}
           >
-            🌳 Create Your Own SuiTree
+            🌳 Create Your Own 42Tree
           </button>
           <p style={{ margin: "10px 0 0" }}>
             Powered by <strong>Sui Network</strong> & <strong>Walrus</strong>

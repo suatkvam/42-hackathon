@@ -123,7 +123,7 @@ export default function PublicProfile() {
           style={{ color: "white", margin: 0, fontSize: "24px", cursor: "pointer" }}
           onClick={() => navigate("/")}
         >
-          🌳 SuiTree
+          🌳 42Tree
         </h1>
         <button
           onClick={() => navigate("/profile")}
@@ -203,9 +203,10 @@ export default function PublicProfile() {
               <div style={{ display: "flex", justifyContent: "center", marginBottom: "15px" }}>
                 <img
                   src={
-                    profile.avatar?.startsWith("http")
+                    profile.avatarUrl ||
+                    (profile.avatar?.startsWith("http")
                       ? profile.avatar
-                      : getWalrusImageUrl(profile.avatar)
+                      : getWalrusImageUrl(profile.avatar))
                   }
                   alt="avatar"
                   style={{

@@ -214,6 +214,18 @@ export default function VaultManager() {
 
         {/* NFT Minting Modal */}
         {selectedAsset && (
+          <>
+          <div style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
+            zIndex: 999
+          }} onClick={() => setSelectedAsset(null)} />
           <Card style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)", zIndex: 1000, minWidth: "400px" }}>
             <Flex direction="column" gap="4" p="4">
               <Heading size="4">Create NFT</Heading>
@@ -266,6 +278,7 @@ export default function VaultManager() {
               </Text>
             </Flex>
           </Card>
+          </>
         )}
       </Flex>
     </Box>

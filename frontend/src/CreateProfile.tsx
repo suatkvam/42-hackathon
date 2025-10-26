@@ -3,6 +3,7 @@ import { useSignAndExecuteTransaction, useSuiClient } from "@mysten/dapp-kit";
 import { Transaction } from "@mysten/sui/transactions";
 import { PACKAGE_ID, MODULE_NAME, REGISTRY_ID } from "./constants";
 import { uploadImageToWalrus, getWalrusImageUrl, uploadProfileToWalrus, ProfileContent } from "./walrusService";
+import { uploadImageToCloudinary, getOptimizedCloudinaryUrl } from "./cloudinaryService";
 import { getTheme, getThemeNames } from "./themes";
 
 interface CreateProfileProps {
@@ -23,7 +24,9 @@ export default function CreateProfile({ onClose, onSuccess, isEditing = false, p
   const [username, setUsername] = useState(existingProfile?.username || "");
   const [name, setName] = useState(existingProfile?.name || "");
   const [bio, setBio] = useState(existingProfile?.bio || "");
-  const [avatarBlobId, setAvatarBlobId] = useState(existingProfile?.avatar || "");  // Avatar image blob ID
+  const [avatarBlobId, setAvatarBlobId] = useState(existingProfile?.avatar || "");  // Walrus blob ID
+  const [avatarUrl, setAvatarUrl] = useState("");  // Cloudinary URL
+  const [uploadMethod, setUploadMethod] = useState<"walrus" | "cloudinary">("cloudinary");  // Upload method
   const [links, setLinks] = useState<Array<{ label: string; url: string }>>([]);  // Links array
   const [theme, setTheme] = useState(existingProfile?.theme || "default");
   const [loading, setLoading] = useState(false);
@@ -66,15 +69,28 @@ export default function CreateProfile({ onClose, onSuccess, isEditing = false, p
       const localUrl = URL.createObjectURL(file);
       setPreviewUrl(localUrl);
 
-      // Upload to Walrus
-      const uploadedBlobId = await uploadImageToWalrus(file);
-      setAvatarBlobId(uploadedBlobId);
-      
-      // Update preview to Walrus URL
-      setPreviewUrl(getWalrusImageUrl(uploadedBlobId));
+      if (uploadMethod === "cloudinary") {
+        // Upload to Cloudinary
+        const cloudinaryUrl = await uploadImageToCloudinary(file);
+        setAvatarUrl(cloudinaryUrl);
+        setAvatarBlobId("");  // Clear Walrus blob ID
+        setPreviewUrl(cloudinaryUrl);
+        console.log("Uploaded to Cloudinary:", cloudinaryUrl);
+      } else {
+        // Upload to Walrus
+        const uploadedBlobId = await uploadImageToWalrus(file);
+        setAvatarBlobId(uploadedBlobId);
+        setAvatarUrl("");  // Clear Cloudinary URL
+        setPreviewUrl(getWalrusImageUrl(uploadedBlobId));
+        console.log("Uploaded to Walrus:", uploadedBlobId);
+      }
     } catch (err: any) {
       console.error("Upload error:", err);
-      setError("⚠️ Walrus testnet is temporarily unavailable. Alternative options: 1) Select default avatar, 2) Upload with Walrus CLI and enter blob ID, 3) Continue without Walrus.");
+      if (uploadMethod === "cloudinary") {
+        setError("⚠️ Cloudinary upload failed. " + err.message);
+      } else {
+        setError("⚠️ Walrus testnet is temporarily unavailable. Alternative options: 1) Select default avatar, 2) Switch to Cloudinary, 3) Upload with Walrus CLI.");
+      }
       // Keep local preview
     } finally {
       setUploading(false);
@@ -98,6 +114,7 @@ export default function CreateProfile({ onClose, onSuccess, isEditing = false, p
         name,
         bio,
         avatar_blob_id: avatarBlobId,
+        avatar_url: avatarUrl,  // Add Cloudinary URL
         links,
       };
 
@@ -289,7 +306,8 @@ export default function CreateProfile({ onClose, onSuccess, isEditing = false, p
                     src={avatar}
                     alt={`Default avatar ${index + 1}`}
                     onClick={() => {
-                      setBlobId(avatar);
+                      setAvatarBlobId(avatar);
+                      setAvatarUrl("");
                       setPreviewUrl(avatar);
                       setError("");
                     }}
@@ -298,11 +316,54 @@ export default function CreateProfile({ onClose, onSuccess, isEditing = false, p
                       height: "50px",
                       borderRadius: "50%",
                       cursor: "pointer",
-                      border: blobId === avatar ? "3px solid #c96d37" : "2px solid #ccc",
+                      border: avatarBlobId === avatar ? "3px solid #c96d37" : "2px solid #ccc",
                       objectFit: "cover",
                     }}
                   />
                 ))}
+              </div>
+            </div>
+
+            {/* Upload Method Selection */}
+            <div style={{ marginBottom: "10px" }}>
+              <div style={{ fontSize: "12px", color: "#666", marginBottom: "5px" }}>
+                Upload method:
+              </div>
+              <div style={{ display: "flex", gap: "10px" }}>
+                <button
+                  type="button"
+                  onClick={() => setUploadMethod("cloudinary")}
+                  style={{
+                    flex: 1,
+                    padding: "8px",
+                    backgroundColor: uploadMethod === "cloudinary" ? "#4299e1" : "#f0f0f0",
+                    color: uploadMethod === "cloudinary" ? "white" : "#666",
+                    border: "none",
+                    borderRadius: "5px",
+                    cursor: "pointer",
+                    fontWeight: "bold",
+                    fontSize: "12px",
+                  }}
+                >
+                  ☁️ Cloudinary
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUploadMethod("walrus")}
+                  style={{
+                    flex: 1,
+                    padding: "8px",
+                    backgroundColor: uploadMethod === "walrus" ? "#4299e1" : "#f0f0f0",
+                    color: uploadMethod === "walrus" ? "white" : "#666",
+                    border: "none",
+                    borderRadius: "5px",
+                    cursor: "pointer",
+                    fontWeight: "bold",
+                    fontSize: "12px",
+                  }}
+                >
+                  🐘 Walrus
+                </button>
               </div>
             </div>
 
@@ -322,66 +383,100 @@ export default function CreateProfile({ onClose, onSuccess, isEditing = false, p
                   display: "block",
                   padding: "10px",
                   backgroundColor: uploading ? "#ccc" : "#f0f0f0",
-                  border: "2px dashed #c96d37",
+                  border: `2px dashed ${uploadMethod === "cloudinary" ? "#4299e1" : "#c96d37"}`,
                   borderRadius: "5px",
                   textAlign: "center",
                   cursor: uploading ? "not-allowed" : "pointer",
                   fontWeight: "bold",
-                  color: "#c96d37",
+                  color: uploadMethod === "cloudinary" ? "#4299e1" : "#c96d37",
                 }}
               >
-                {uploading ? "Uploading to Walrus..." : "📤 Upload to Walrus (currently unavailable)"}
+                {uploading 
+                  ? `Uploading to ${uploadMethod === "cloudinary" ? "Cloudinary" : "Walrus"}...` 
+                  : `📤 Upload to ${uploadMethod === "cloudinary" ? "Cloudinary" : "Walrus"}`
+                }
               </label>
             </div>
 
-            {/* Manual Blob ID Input */}
-            <div style={{ fontSize: "12px", color: "#666", marginBottom: "5px" }}>
-              Or enter Walrus blob ID manually:
-            </div>
-            {(error.includes("Walrus") || error.includes("CLI")) && (
-              <div style={{ 
-                fontSize: "11px", 
-                color: "#c96d37", 
-                backgroundColor: "#fff3e0", 
-                padding: "8px", 
-                borderRadius: "4px", 
-                marginBottom: "8px",
-                border: "1px solid #c96d37"
-              }}>
-                💡 <strong>Tips:</strong><br/>
-                1) Select default avatar above (easiest)<br/>
-                2) Upload with Walrus CLI: <code style={{fontSize: "10px", backgroundColor: "#fff", padding: "2px 4px", borderRadius: "2px"}}>walrus store image.png</code><br/>
-                3) Try again after Walrus testnet is fixed
+            {/* Manual Input */}
+            {uploadMethod === "cloudinary" && (
+              <div>
+                <div style={{ fontSize: "12px", color: "#666", marginBottom: "5px" }}>
+                  Or enter Cloudinary URL manually:
+                </div>
+                <input
+                  type="text"
+                  value={avatarUrl}
+                  onChange={(e) => {
+                    const url = e.target.value.trim();
+                    setAvatarUrl(url);
+                    setAvatarBlobId("");
+                    setPreviewUrl(url);
+                    setError("");
+                  }}
+                  style={{
+                    width: "100%",
+                    padding: "10px",
+                    borderRadius: "5px",
+                    border: "1px solid #ccc",
+                    boxSizing: "border-box",
+                    fontSize: "12px",
+                  }}
+                  placeholder="https://res.cloudinary.com/..."
+                />
               </div>
             )}
-            <input
-              type="text"
-              value={blobId}
-              onChange={(e) => {
-                const newBlobId = e.target.value.trim();
-                setBlobId(newBlobId);
-                setError(""); // Clear previous errors
-                if (newBlobId && !newBlobId.startsWith("data:")) {
-                  // Only try to load from Walrus if it's not a data URL
-                  const url = getWalrusImageUrl(newBlobId);
-                  console.log("Setting preview URL:", url);
-                  setPreviewUrl(url);
-                } else if (newBlobId.startsWith("data:")) {
-                  setPreviewUrl(newBlobId);
-                } else {
-                  setPreviewUrl("");
-                }
-              }}
-              style={{
-                width: "100%",
-                padding: "10px",
-                borderRadius: "5px",
-                border: "1px solid #ccc",
-                boxSizing: "border-box",
-                fontSize: "12px",
-              }}
-              placeholder="Blob ID (or select default avatar above)"
-            />
+
+            {uploadMethod === "walrus" && (
+              <div>
+                <div style={{ fontSize: "12px", color: "#666", marginBottom: "5px" }}>
+                  Or enter Walrus blob ID manually:
+                </div>
+                {(error.includes("Walrus") || error.includes("CLI")) && (
+                  <div style={{ 
+                    fontSize: "11px", 
+                    color: "#c96d37", 
+                    backgroundColor: "#fff3e0", 
+                    padding: "8px", 
+                    borderRadius: "4px", 
+                    marginBottom: "8px",
+                    border: "1px solid #c96d37"
+                  }}>
+                    💡 <strong>Tips:</strong><br/>
+                    1) Select default avatar above (easiest)<br/>
+                    2) Switch to Cloudinary upload<br/>
+                    3) Upload with Walrus CLI: <code style={{fontSize: "10px", backgroundColor: "#fff", padding: "2px 4px", borderRadius: "2px"}}>walrus store image.png</code>
+                  </div>
+                )}
+                <input
+                  type="text"
+                  value={avatarBlobId}
+                  onChange={(e) => {
+                    const newBlobId = e.target.value.trim();
+                    setAvatarBlobId(newBlobId);
+                    setAvatarUrl("");
+                    setError("");
+                    if (newBlobId && !newBlobId.startsWith("data:")) {
+                      const url = getWalrusImageUrl(newBlobId);
+                      setPreviewUrl(url);
+                    } else if (newBlobId.startsWith("data:")) {
+                      setPreviewUrl(newBlobId);
+                    } else {
+                      setPreviewUrl("");
+                    }
+                  }}
+                  style={{
+                    width: "100%",
+                    padding: "10px",
+                    borderRadius: "5px",
+                    border: "1px solid #ccc",
+                    boxSizing: "border-box",
+                    fontSize: "12px",
+                  }}
+                  placeholder="Blob ID (or select default avatar above)"
+                />
+              </div>
+            )}
           </div>
 
           <div style={{ marginBottom: "20px" }}>

@@ -1,16 +1,49 @@
-import { ConnectButton, useCurrentAccount } from "@mysten/dapp-kit";
+import { ConnectButton, useCurrentAccount, useDisconnectWallet } from "@mysten/dapp-kit";
 import { useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { getTheme, getThemeNames, type Theme } from "./themes";
 
 export default function LandingPage() {
   const account = useCurrentAccount();
   const navigate = useNavigate();
+  const { mutate: disconnect } = useDisconnectWallet();
   const [currentTheme, setCurrentTheme] = useState<Theme>(() => {
     const savedTheme = localStorage.getItem("suitree_theme");
     return getTheme(savedTheme || "default");
   });
   const [showThemeMenu, setShowThemeMenu] = useState(false);
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const sliderRef = useRef<HTMLDivElement>(null);
+
+  const features = [
+    {
+      icon: "🔗",
+      title: "One Link, Infinite Possibilities",
+      description: "Share all your important links in one place"
+    },
+    {
+      icon: "🔒",
+      title: "Blockchain Secured",
+      description: "Your data is stored on Sui blockchain"
+    },
+    {
+      icon: "🎨",
+      title: "Customizable",
+      description: "Personalize with themes and avatars"
+    }
+  ];
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % features.length);
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const goToSlide = (index: number) => {
+    setCurrentSlide(index);
+  };
 
   const handleThemeChange = (themeName: string, theme: Theme) => {
     setCurrentTheme(theme);
@@ -45,7 +78,7 @@ export default function LandingPage() {
           fontSize: "clamp(20px, 5vw, 28px)", 
           fontWeight: "bold" 
         }}>
-          🌳 SuiTree
+          🌳 42Tree
         </h1>
         <div style={{ display: "flex", gap: "15px", alignItems: "center", flexWrap: "wrap" }}>
           {/* Theme Selector */}
@@ -143,7 +176,43 @@ export default function LandingPage() {
               🌳 Dashboard
             </button>
           )}
-          <ConnectButton />
+          {account ? (
+            <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+              <div style={{
+                padding: "10px 20px",
+                backgroundColor: "white",
+                color: "#333",
+                borderRadius: "8px",
+                fontWeight: "600",
+                fontSize: "14px",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px"
+              }}>
+                💼 Wallet: {account.address.slice(0, 6)}...{account.address.slice(-4)}
+              </div>
+              <button
+                onClick={() => disconnect()}
+                style={{
+                  padding: "10px 20px",
+                  backgroundColor: "rgba(255, 59, 48, 0.9)",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  fontWeight: "600",
+                  fontSize: "14px",
+                  transition: "all 0.2s"
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(255, 59, 48, 1)"}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "rgba(255, 59, 48, 0.9)"}
+              >
+                Disconnect
+              </button>
+            </div>
+          ) : (
+            <ConnectButton />
+          )}
         </div>
       </header>
 
@@ -180,67 +249,99 @@ export default function LandingPage() {
             }}
           >
             Create your profile on the blockchain. Share your links, build your presence,
-            and own your data with SuiTree - powered by Sui Network and Walrus Storage.
+            and own your data with 42Tree - powered by Sui Network and Walrus Storage.
           </p>
 
-          {/* Features */}
+          {/* Features Slider */}
           <div
             style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-              gap: "20px",
-              marginBottom: "50px",
+              position: "relative",
+              width: "100%",
+              maxWidth: "600px",
+              margin: "0 auto 50px",
+              overflow: "hidden",
             }}
           >
             <div
+              ref={sliderRef}
               style={{
-                backgroundColor: "rgba(255, 255, 255, 0.1)",
-                padding: "25px",
-                borderRadius: "15px",
-                backdropFilter: "blur(10px)",
+                display: "flex",
+                transform: `translateX(-${currentSlide * 100}%)`,
+                transition: "transform 0.5s ease-in-out",
               }}
             >
-              <div style={{ fontSize: "40px", marginBottom: "10px" }}>🔗</div>
-              <h3 style={{ color: "white", marginBottom: "10px", fontSize: "18px" }}>
-                One Link, Infinite Possibilities
-              </h3>
-              <p style={{ color: "rgba(255, 255, 255, 0.7)", fontSize: "14px", margin: 0 }}>
-                Share all your important links in one place
-              </p>
+              {features.map((feature, index) => (
+                <div
+                  key={index}
+                  style={{
+                    minWidth: "100%",
+                    padding: "0 10px",
+                    boxSizing: "border-box",
+                  }}
+                >
+                  <div
+                    style={{
+                      backgroundColor: "rgba(255, 255, 255, 0.1)",
+                      padding: "50px 40px",
+                      borderRadius: "20px",
+                      backdropFilter: "blur(10px)",
+                      textAlign: "center",
+                      minHeight: "300px",
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "center",
+                      alignItems: "center",
+                    }}
+                  >
+                    <div style={{ fontSize: "80px", marginBottom: "20px" }}>{feature.icon}</div>
+                    <h3 style={{ 
+                      color: "white", 
+                      marginBottom: "15px", 
+                      fontSize: "28px",
+                      fontWeight: "bold"
+                    }}>
+                      {feature.title}
+                    </h3>
+                    <p style={{ 
+                      color: "rgba(255, 255, 255, 0.8)", 
+                      fontSize: "18px", 
+                      margin: 0,
+                      lineHeight: "1.6"
+                    }}>
+                      {feature.description}
+                    </p>
+                  </div>
+                </div>
+              ))}
             </div>
-
+            
+            {/* Navigation Dots */}
             <div
               style={{
-                backgroundColor: "rgba(255, 255, 255, 0.1)",
-                padding: "25px",
-                borderRadius: "15px",
-                backdropFilter: "blur(10px)",
+                display: "flex",
+                justifyContent: "center",
+                gap: "10px",
+                marginTop: "20px",
               }}
             >
-              <div style={{ fontSize: "40px", marginBottom: "10px" }}>🔒</div>
-              <h3 style={{ color: "white", marginBottom: "10px", fontSize: "18px" }}>
-                Blockchain Secured
-              </h3>
-              <p style={{ color: "rgba(255, 255, 255, 0.7)", fontSize: "14px", margin: 0 }}>
-                Your data is stored on Sui blockchain
-              </p>
-            </div>
-
-            <div
-              style={{
-                backgroundColor: "rgba(255, 255, 255, 0.1)",
-                padding: "25px",
-                borderRadius: "15px",
-                backdropFilter: "blur(10px)",
-              }}
-            >
-              <div style={{ fontSize: "40px", marginBottom: "10px" }}>🎨</div>
-              <h3 style={{ color: "white", marginBottom: "10px", fontSize: "18px" }}>
-                Customizable
-              </h3>
-              <p style={{ color: "rgba(255, 255, 255, 0.7)", fontSize: "14px", margin: 0 }}>
-                Personalize with themes and avatars
-              </p>
+              {features.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => goToSlide(index)}
+                  style={{
+                    width: currentSlide === index ? "30px" : "12px",
+                    height: "12px",
+                    borderRadius: "6px",
+                    border: "none",
+                    backgroundColor: currentSlide === index 
+                      ? "white" 
+                      : "rgba(255, 255, 255, 0.4)",
+                    cursor: "pointer",
+                    transition: "all 0.3s ease",
+                  }}
+                  aria-label={`Go to slide ${index + 1}`}
+                />
+              ))}
             </div>
           </div>
 

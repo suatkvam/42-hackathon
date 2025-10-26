@@ -3,6 +3,8 @@ import { useSignAndExecuteTransaction } from "@mysten/dapp-kit";
 import { Transaction } from "@mysten/sui/transactions";
 import { PACKAGE_ID, MODULE_NAME, REGISTRY_ID } from "./constants";
 import { getTheme, getThemeNames } from "./themes";
+import { uploadProfileToWalrus, ProfileContent } from "./walrusService";
+import { uploadImageToCloudinary } from "./cloudinaryService";
 
 interface Link {
   id: string;
@@ -19,6 +21,7 @@ export default function CreateProfileSimple({ onClose, onSuccess }: CreateProfil
   const [username, setUsername] = useState("");
   const [name, setName] = useState("");
   const [bio, setBio] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");  // Cloudinary URL for avatar
   const [links, setLinks] = useState<Link[]>([]);
   const [theme, setTheme] = useState("default");
   const [loading, setLoading] = useState(false);
@@ -60,18 +63,27 @@ export default function CreateProfileSimple({ onClose, onSuccess }: CreateProfil
     }
 
     try {
+      // Upload profile content to Walrus
+      const profileContent: ProfileContent = {
+        name: name,
+        bio: bio,
+        avatar_blob_id: "", // Empty for now, can be added later
+        avatar_url: avatarUrl,  // Cloudinary URL
+        links: links.map(link => ({ label: link.label, url: link.url })),
+      };
+
+      const contentBlobId = await uploadProfileToWalrus(profileContent);
+
       const tx = new Transaction();
       tx.setGasBudget(10000000);
 
-      // Create profile with empty blob_id (avatar will be added later)
+      // Create profile with Walrus content blob ID
       tx.moveCall({
         target: `${PACKAGE_ID}::${MODULE_NAME}::create_profile_v2`,
         arguments: [
           tx.object(REGISTRY_ID),
           tx.pure.string(username),
-          tx.pure.string(name),
-          tx.pure.string(bio),
-          tx.pure.string(""), // Empty blob_id for now
+          tx.pure.string(contentBlobId),
           tx.pure.string(theme),
         ],
       });

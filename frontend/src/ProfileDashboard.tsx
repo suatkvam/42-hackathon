@@ -5,6 +5,7 @@ import { Transaction } from "@mysten/sui/transactions";
 import { QRCodeSVG } from "qrcode.react";
 import CreateProfileSimple from "./CreateProfileSimple";
 import { getWalrusImageUrl, fetchProfileFromWalrus, uploadProfileToWalrus, ProfileContent } from "./walrusService";
+import { uploadImageToCloudinary } from "./cloudinaryService";
 import { PACKAGE_ID, MODULE_NAME, REGISTRY_ID } from "./constants";
 import { getTheme, getThemeNames, type Theme } from "./themes";
 import { getAnalytics, isAnalyticsEnabled, type AnalyticsStats } from "./analyticsService";
@@ -40,7 +41,10 @@ export default function ProfileDashboard() {
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [editName, setEditName] = useState("");
   const [editBio, setEditBio] = useState("");
-  const [editAvatar, setEditAvatar] = useState("");
+  const [editAvatar, setEditAvatar] = useState("");  // Walrus blob ID
+  const [editAvatarUrl, setEditAvatarUrl] = useState("");  // Cloudinary URL
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
   const [showEditLink, setShowEditLink] = useState(false);
   const [editingLink, setEditingLink] = useState<{oldLabel: string; label: string; url: string} | null>(null);
@@ -86,11 +90,16 @@ export default function ProfileDashboard() {
             console.log("Fetched profile content from Walrus:", profileContent);
             
             setProfileObjectId(profileObj.data.objectId);
+            console.log("[DEBUG] Profile content loaded:", {
+              avatar_blob_id: profileContent.avatar_blob_id,
+              avatar_url: profileContent.avatar_url,
+            });
             setUserProfile({
               username: fields.username,
               name: profileContent.name,
               bio: profileContent.bio,
               avatar: profileContent.avatar_blob_id,
+              avatarUrl: profileContent.avatar_url,  // Cloudinary URL
               links: profileContent.links.map(link => ({
                 key: link.label,
                 value: link.url,
@@ -103,14 +112,27 @@ export default function ProfileDashboard() {
             localStorage.setItem("suitree_theme", themeName);
           } catch (err) {
             console.error("Error fetching profile content from Walrus:", err);
-            // Fallback to old structure if Walrus fetch fails
+            // Fallback to old structure (V2) if Walrus fetch fails
+            console.log("Using V2 fallback structure");
+            
+            // Parse old VecMap structure for links
+            let parsedLinks = [];
+            if (fields.links?.fields?.contents) {
+              parsedLinks = fields.links.fields.contents.map((item: any) => ({
+                key: item.fields.key,
+                value: item.fields.value,
+              }));
+            } else if (Array.isArray(fields.links)) {
+              parsedLinks = fields.links;
+            }
+            
             setProfileObjectId(profileObj.data.objectId);
             setUserProfile({
               username: fields.username,
               name: fields.name || "User",
               bio: fields.bio || "",
               avatar: fields.blob_id || "",
-              links: [],
+              links: parsedLinks,
               theme: themeName,
               username_change_count: fields.username_change_count || 0,
             });
@@ -149,6 +171,7 @@ export default function ProfileDashboard() {
         name: userProfile.name,
         bio: userProfile.bio,
         avatar_blob_id: userProfile.avatar,
+        avatar_url: userProfile.avatarUrl,  // Preserve Cloudinary URL
         links: updatedLinks.map((link: any) => ({ label: link.key, url: link.value })),
       };
 
@@ -205,6 +228,7 @@ export default function ProfileDashboard() {
         name: userProfile.name,
         bio: userProfile.bio,
         avatar_blob_id: userProfile.avatar,
+        avatar_url: userProfile.avatarUrl,  // Preserve Cloudinary URL
         links: updatedLinks.map((link: any) => ({ label: link.key, url: link.value })),
       };
 
@@ -261,6 +285,15 @@ export default function ProfileDashboard() {
     setEditName(userProfile?.name || "");
     setEditBio(userProfile?.bio || "");
     setEditAvatar(userProfile?.avatar || "");
+    setEditAvatarUrl(userProfile?.avatarUrl || "");
+    // Set initial preview
+    if (userProfile?.avatarUrl) {
+      setAvatarPreview(userProfile.avatarUrl);
+    } else if (userProfile?.avatar) {
+      setAvatarPreview(getWalrusImageUrl(userProfile.avatar));
+    } else {
+      setAvatarPreview("");
+    }
     setShowEditProfile(true);
   };
 
@@ -286,6 +319,7 @@ export default function ProfileDashboard() {
         name: userProfile.name,
         bio: userProfile.bio,
         avatar_blob_id: userProfile.avatar,
+        avatar_url: userProfile.avatarUrl,  // Preserve Cloudinary URL
         links: updatedLinks.map((link: any) => ({ label: link.key, url: link.value })),
       };
 
@@ -331,6 +365,13 @@ export default function ProfileDashboard() {
     e.preventDefault();
     if (!profileObjectId || !userProfile) return;
 
+    console.log("[DEBUG] Saving profile with:", {
+      editName,
+      editBio,
+      editAvatar,
+      editAvatarUrl,
+    });
+
     setSavingProfile(true);
     
     try {
@@ -339,8 +380,11 @@ export default function ProfileDashboard() {
         name: editName,
         bio: editBio,
         avatar_blob_id: editAvatar,
+        avatar_url: editAvatarUrl,  // Include Cloudinary URL
         links: userProfile.links.map((link: any) => ({ label: link.key, url: link.value })),
       };
+      
+      console.log("[DEBUG] Profile content to save:", profileContent);
 
       const contentBlobId = await uploadProfileToWalrus(profileContent);
 
@@ -555,6 +599,13 @@ export default function ProfileDashboard() {
       background: currentTheme.gradient,
       fontFamily: "system-ui, -apple-system, sans-serif"
     }}>
+      <style>{`
+        input::placeholder,
+        textarea::placeholder {
+          color: ${currentTheme.colors.textSecondary};
+          opacity: 0.6;
+        }
+      `}</style>
       {/* Sidebar */}
       <aside style={{
         position: "fixed",
@@ -577,7 +628,7 @@ export default function ProfileDashboard() {
           color: currentTheme.colors.text,
           cursor: "pointer"
         }} onClick={() => navigate("/")}>
-          🌳 SuiTree
+          🌳 42Tree
         </div>
 
         <NavItem icon="🏠" label="My Linktree" active theme={currentTheme} />
@@ -655,26 +706,46 @@ export default function ProfileDashboard() {
                     width: "80px",
                     height: "80px",
                     borderRadius: "50%",
-                    backgroundColor: "#e2e8f0",
+                    backgroundColor: currentTheme.colors.cardHover,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     fontSize: "32px",
                     overflow: "hidden"
                   }}>
-                    {userProfile?.avatar ? (
-                      <img 
-                        src={getWalrusImageUrl(userProfile.avatar)} 
-                        alt="Avatar"
-                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                      />
-                    ) : "👤"}
+                    {(() => {
+                      // Determine avatar source with proper checks
+                      let avatarSrc = "";
+                      if (userProfile?.avatarUrl && userProfile.avatarUrl.trim() !== "") {
+                        avatarSrc = userProfile.avatarUrl;
+                      } else if (userProfile?.avatar && userProfile.avatar.trim() !== "") {
+                        avatarSrc = getWalrusImageUrl(userProfile.avatar);
+                      }
+                      
+                      console.log("[DEBUG] Avatar display:", {
+                        avatarUrl: userProfile?.avatarUrl,
+                        avatar: userProfile?.avatar,
+                        finalSrc: avatarSrc
+                      });
+                      
+                      return avatarSrc ? (
+                        <img 
+                          src={avatarSrc}
+                          alt="Avatar"
+                          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                          onError={(e) => {
+                            e.currentTarget.style.display = "none";
+                            e.currentTarget.parentElement!.innerHTML = "👤";
+                          }}
+                        />
+                      ) : "👤";
+                    })()}
                   </div>
                   <div style={{ flex: 1 }}>
-                    <h2 style={{ fontSize: "20px", fontWeight: "bold", color: "#1a202c", margin: 0 }}>
+                    <h2 style={{ fontSize: "20px", fontWeight: "bold", color: currentTheme.colors.text, margin: 0 }}>
                       @{userProfile?.username || "username"}
                     </h2>
-                    <p style={{ color: "#718096", fontSize: "14px", marginTop: "5px" }}>
+                    <p style={{ color: currentTheme.colors.textSecondary, fontSize: "14px", marginTop: "5px" }}>
                       {userProfile?.bio || "Add bio"}
                     </p>
                   </div>
@@ -697,14 +768,19 @@ export default function ProfileDashboard() {
               {showAddLink && (
                 <Card>
                   <form onSubmit={handleAddLink} style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
-                    <h3 style={{ fontSize: "18px", fontWeight: "bold", margin: 0 }}>Add New Link</h3>
+                  <h3 style={{ fontSize: "18px", fontWeight: "bold", margin: 0, color: currentTheme.colors.text }}>Add New Link</h3>
                     <input
                       type="text"
                       placeholder="Label (e.g., GitHub, Twitter)"
                       value={newLinkLabel}
                       onChange={(e) => setNewLinkLabel(e.target.value)}
                       required
-                      style={inputStyle}
+                      style={{
+                        ...inputStyle,
+                        backgroundColor: currentTheme.colors.cardHover,
+                        color: currentTheme.colors.text,
+                        border: `1px solid ${currentTheme.colors.border}`
+                      }}
                     />
                     <input
                       type="url"
@@ -712,7 +788,12 @@ export default function ProfileDashboard() {
                       value={newLinkUrl}
                       onChange={(e) => setNewLinkUrl(e.target.value)}
                       required
-                      style={inputStyle}
+                      style={{
+                        ...inputStyle,
+                        backgroundColor: currentTheme.colors.cardHover,
+                        color: currentTheme.colors.text,
+                        border: `1px solid ${currentTheme.colors.border}`
+                      }}
                     />
                     <div style={{ display: "flex", gap: "10px" }}>
                       <Button type="button" variant="secondary" onClick={() => setShowAddLink(false)} disabled={addingLink}>
@@ -752,7 +833,7 @@ export default function ProfileDashboard() {
                   ))
                 ) : (
                   <Card>
-                    <div style={{ textAlign: "center", padding: "40px", color: "#718096" }}>
+                    <div style={{ textAlign: "center", padding: "40px", color: currentTheme.colors.textSecondary }}>
                       <div style={{ fontSize: "48px", marginBottom: "10px" }}>🔗</div>
                       <p>No links yet. Add your first link!</p>
                     </div>
@@ -767,7 +848,7 @@ export default function ProfileDashboard() {
                 <div style={{ textAlign: "center", marginBottom: "20px" }}>
                   <div style={{ 
                     fontSize: "14px", 
-                    color: "#718096", 
+                    color: currentTheme.colors.textSecondary,
                     marginBottom: "10px",
                     display: "flex",
                     alignItems: "center",
@@ -832,7 +913,7 @@ export default function ProfileDashboard() {
                       <h3 style={{ fontSize: "18px", fontWeight: "bold", margin: 0 }}>
                         @{userProfile?.username || "username"}
                       </h3>
-                      <p style={{ fontSize: "14px", color: "#718096", marginTop: "5px" }}>
+                      <p style={{ fontSize: "14px", color: "#2d3748", marginTop: "5px" }}>
                         {userProfile?.bio || "Your bio here"}
                       </p>
                     </div>
@@ -847,6 +928,7 @@ export default function ProfileDashboard() {
                             borderRadius: "8px",
                             fontSize: "14px",
                             fontWeight: "500",
+                            color: "#2d3748",
                             boxShadow: "0 1px 3px rgba(0,0,0,0.1)"
                           }}>
                             {link.key || `Link ${index + 1}`}
@@ -866,8 +948,8 @@ export default function ProfileDashboard() {
                     </div>
 
                     <div style={{ marginTop: "auto", paddingTop: "20px" }}>
-                      <small style={{ fontSize: "12px", color: "#a0aec0" }}>
-                        Powered by SuiTree 🌳
+                      <small style={{ fontSize: "12px", color: "#2d3748" }}>
+                        Powered by 42Tree 🌳
                       </small>
                     </div>
                   </div>
@@ -898,7 +980,9 @@ export default function ProfileDashboard() {
             left: 0,
             right: 0,
             bottom: 0,
-            backgroundColor: "rgba(0, 0, 0, 0.7)",
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
@@ -910,11 +994,11 @@ export default function ProfileDashboard() {
           <div
             style={{
               backgroundColor: currentTheme.colors.card,
-              borderRadius: "15px",
-              padding: "30px",
+              borderRadius: "20px",
+              padding: "40px",
               width: "100%",
-              maxWidth: "600px",
-              maxHeight: "80vh",
+              maxWidth: "700px",
+              maxHeight: "85vh",
               overflow: "auto",
             }}
             onClick={(e) => e.stopPropagation()}
@@ -1021,7 +1105,9 @@ export default function ProfileDashboard() {
             left: 0,
             right: 0,
             bottom: 0,
-            backgroundColor: "rgba(0, 0, 0, 0.7)",
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
@@ -1033,14 +1119,14 @@ export default function ProfileDashboard() {
           <div
             style={{
               backgroundColor: currentTheme.colors.card,
-              borderRadius: "15px",
-              padding: "30px",
+              borderRadius: "20px",
+              padding: "40px",
               width: "100%",
-              maxWidth: "500px",
+              maxWidth: "580px",
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 style={{ fontSize: "24px", fontWeight: "bold", color: currentTheme.colors.text, marginTop: 0 }}>
+            <h2 style={{ fontSize: "26px", fontWeight: "bold", color: currentTheme.colors.text, marginTop: 0, marginBottom: "20px" }}>
               👤 Change Username
             </h2>
             <p style={{ color: currentTheme.colors.textSecondary, marginBottom: "20px", fontSize: "14px" }}>
@@ -1058,15 +1144,17 @@ export default function ProfileDashboard() {
                 placeholder="New username"
                 required
                 disabled={changingUsername}
-                style={{
-                  width: "100%",
-                  padding: "12px",
-                  borderRadius: "8px",
-                  border: `1px solid ${currentTheme.colors.border}`,
-                  fontSize: "14px",
-                  boxSizing: "border-box",
-                  marginBottom: "20px",
-                }}
+                  style={{
+                    width: "100%",
+                    padding: "12px",
+                    borderRadius: "8px",
+                    border: `1px solid ${currentTheme.colors.border}`,
+                    backgroundColor: currentTheme.colors.cardHover,
+                    color: currentTheme.colors.text,
+                    fontSize: "14px",
+                    boxSizing: "border-box",
+                    marginBottom: "20px",
+                  }}
               />
 
               <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
@@ -1118,7 +1206,9 @@ export default function ProfileDashboard() {
             left: 0,
             right: 0,
             bottom: 0,
-            backgroundColor: "rgba(0, 0, 0, 0.7)",
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
@@ -1130,14 +1220,14 @@ export default function ProfileDashboard() {
           <div
             style={{
               backgroundColor: currentTheme.colors.card,
-              borderRadius: "15px",
-              padding: "30px",
+              borderRadius: "20px",
+              padding: "40px",
               width: "100%",
-              maxWidth: "500px",
+              maxWidth: "580px",
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 style={{ fontSize: "24px", fontWeight: "bold", color: currentTheme.colors.danger, marginTop: 0 }}>
+            <h2 style={{ fontSize: "26px", fontWeight: "bold", color: currentTheme.colors.danger, marginTop: 0, marginBottom: "20px" }}>
               🗑️ Delete Account
             </h2>
             <p style={{ color: currentTheme.colors.text, marginBottom: "20px", fontSize: "14px" }}>
@@ -1194,7 +1284,9 @@ export default function ProfileDashboard() {
             left: 0,
             right: 0,
             bottom: 0,
-            backgroundColor: "rgba(0, 0, 0, 0.7)",
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
@@ -1328,10 +1420,147 @@ export default function ProfileDashboard() {
                   </div>
                 </div>
 
+                {/* Traffic Source */}
+                <div style={{ marginBottom: "30px" }}>
+                  <h3 style={{ fontSize: "18px", fontWeight: "600", color: currentTheme.colors.text, marginBottom: "15px" }}>
+                    🌐 Traffic Sources
+                  </h3>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                    {Object.entries(analyticsData.clicksByReferrer)
+                      .sort(([, a], [, b]) => (b as number) - (a as number))
+                      .slice(0, 5)
+                      .map(([source, clicks]) => {
+                        const total = analyticsData.totalClicks;
+                        const percentage = Math.round(((clicks as number) / total) * 100);
+                        return (
+                          <div
+                            key={source}
+                            style={{
+                              padding: "12px",
+                              backgroundColor: currentTheme.colors.cardHover,
+                              borderRadius: "8px",
+                            }}
+                          >
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                              <div style={{ fontSize: "14px", fontWeight: "600", color: currentTheme.colors.text }}>
+                                {source}
+                              </div>
+                              <div style={{ fontSize: "14px", fontWeight: "600", color: currentTheme.colors.primary }}>
+                                {clicks} ({percentage}%)
+                              </div>
+                            </div>
+                            <div style={{ 
+                              height: "6px", 
+                              backgroundColor: currentTheme.colors.border, 
+                              borderRadius: "3px",
+                              overflow: "hidden"
+                            }}>
+                              <div style={{
+                                height: "100%",
+                                width: `${percentage}%`,
+                                backgroundColor: currentTheme.colors.primary,
+                                transition: "width 0.3s ease"
+                              }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </div>
+
+                {/* Device Breakdown */}
+                <div style={{ marginBottom: "30px" }}>
+                  <h3 style={{ fontSize: "18px", fontWeight: "600", color: currentTheme.colors.text, marginBottom: "15px" }}>
+                    📱 Devices
+                  </h3>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "10px" }}>
+                    {Object.entries(analyticsData.clicksByDevice).map(([device, count]) => {
+                      const total = analyticsData.totalClicks;
+                      const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
+                      const icons: Record<string, string> = {
+                        mobile: "📱",
+                        desktop: "💻",
+                        tablet: "📲",
+                        other: "❓"
+                      };
+                      return (
+                        <div
+                          key={device}
+                          style={{
+                            padding: "15px",
+                            backgroundColor: currentTheme.colors.cardHover,
+                            borderRadius: "10px",
+                            textAlign: "center",
+                          }}
+                        >
+                          <div style={{ fontSize: "32px", marginBottom: "5px" }}>
+                            {icons[device] || "❓"}
+                          </div>
+                          <div style={{ fontSize: "14px", fontWeight: "600", color: currentTheme.colors.text, textTransform: "capitalize", marginBottom: "3px" }}>
+                            {device}
+                          </div>
+                          <div style={{ fontSize: "18px", fontWeight: "bold", color: currentTheme.colors.primary }}>
+                            {count} <span style={{ fontSize: "12px", color: currentTheme.colors.textSecondary }}>({percentage}%)</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Peak Hours */}
+                <div style={{ marginBottom: "30px" }}>
+                  <h3 style={{ fontSize: "18px", fontWeight: "600", color: currentTheme.colors.text, marginBottom: "15px" }}>
+                    ⏰ Peak Hours (Most Active Times)
+                  </h3>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                    {Object.entries(analyticsData.clicksByHour)
+                      .sort(([, a], [, b]) => (b as number) - (a as number))
+                      .slice(0, 6)
+                      .map(([hour, clicks]) => {
+                        const hourNum = parseInt(hour);
+                        const hourLabel = `${hourNum.toString().padStart(2, '0')}:00 - ${((hourNum + 1) % 24).toString().padStart(2, '0')}:00`;
+                        const maxClicks = Math.max(...Object.values(analyticsData.clicksByHour));
+                        const percentage = (clicks as number / maxClicks) * 100;
+                        return (
+                          <div
+                            key={hour}
+                            style={{
+                              padding: "10px",
+                              backgroundColor: currentTheme.colors.cardHover,
+                              borderRadius: "8px",
+                            }}
+                          >
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+                              <div style={{ fontSize: "13px", color: currentTheme.colors.text }}>
+                                {hourLabel}
+                              </div>
+                              <div style={{ fontSize: "13px", fontWeight: "600", color: currentTheme.colors.primary }}>
+                                {clicks} clicks
+                              </div>
+                            </div>
+                            <div style={{ 
+                              height: "4px", 
+                              backgroundColor: currentTheme.colors.border, 
+                              borderRadius: "2px",
+                              overflow: "hidden"
+                            }}>
+                              <div style={{
+                                height: "100%",
+                                width: `${percentage}%`,
+                                backgroundColor: currentTheme.colors.primary,
+                              }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </div>
+
                 {/* Clicks by Day */}
                 <div>
                   <h3 style={{ fontSize: "18px", fontWeight: "600", color: currentTheme.colors.text, marginBottom: "15px" }}>
-                    Recent Activity (Last 7 Days)
+                    📅 Recent Activity (Last 7 Days)
                   </h3>
                   <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                     {Object.entries(analyticsData.clicksByDay)
@@ -1374,7 +1603,9 @@ export default function ProfileDashboard() {
             left: 0,
             right: 0,
             bottom: 0,
-            backgroundColor: "rgba(0, 0, 0, 0.7)",
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
@@ -1386,20 +1617,20 @@ export default function ProfileDashboard() {
           <div
             style={{
               backgroundColor: currentTheme.colors.card,
-              borderRadius: "15px",
-              padding: "30px",
+              borderRadius: "20px",
+              padding: "40px",
               width: "100%",
-              maxWidth: "500px",
+              maxWidth: "580px",
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 style={{ fontSize: "24px", fontWeight: "bold", color: currentTheme.colors.text, marginTop: 0 }}>
+            <h2 style={{ fontSize: "26px", fontWeight: "bold", color: currentTheme.colors.text, marginTop: 0, marginBottom: "25px" }}>
               ✏️ Edit Link
             </h2>
 
             <form onSubmit={handleSaveLink}>
-              <div style={{ marginBottom: "15px" }}>
-                <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold", fontSize: "14px", color: currentTheme.colors.text }}>
+              <div style={{ marginBottom: "20px" }}>
+                <label style={{ display: "block", marginBottom: "8px", fontWeight: "bold", fontSize: "15px", color: currentTheme.colors.text }}>
                   Label
                 </label>
                 <input
@@ -1411,17 +1642,19 @@ export default function ProfileDashboard() {
                   placeholder="e.g., GitHub, Twitter"
                   style={{
                     width: "100%",
-                    padding: "12px",
+                    padding: "14px",
                     borderRadius: "8px",
                     border: `1px solid ${currentTheme.colors.border}`,
+                    backgroundColor: currentTheme.colors.cardHover,
+                    color: currentTheme.colors.text,
                     fontSize: "14px",
                     boxSizing: "border-box",
                   }}
                 />
               </div>
 
-              <div style={{ marginBottom: "20px" }}>
-                <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold", fontSize: "14px", color: currentTheme.colors.text }}>
+              <div style={{ marginBottom: "25px" }}>
+                <label style={{ display: "block", marginBottom: "8px", fontWeight: "bold", fontSize: "15px", color: currentTheme.colors.text }}>
                   URL
                 </label>
                 <input
@@ -1433,9 +1666,11 @@ export default function ProfileDashboard() {
                   placeholder="https://..."
                   style={{
                     width: "100%",
-                    padding: "12px",
+                    padding: "14px",
                     borderRadius: "8px",
                     border: `1px solid ${currentTheme.colors.border}`,
+                    backgroundColor: currentTheme.colors.cardHover,
+                    color: currentTheme.colors.text,
                     fontSize: "14px",
                     boxSizing: "border-box",
                   }}
@@ -1494,7 +1729,9 @@ export default function ProfileDashboard() {
             left: 0,
             right: 0,
             bottom: 0,
-            backgroundColor: "rgba(0, 0, 0, 0.7)",
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
@@ -1506,20 +1743,20 @@ export default function ProfileDashboard() {
           <div
             style={{
               backgroundColor: currentTheme.colors.card,
-              borderRadius: "15px",
-              padding: "30px",
+              borderRadius: "20px",
+              padding: "40px",
               width: "100%",
-              maxWidth: "500px",
+              maxWidth: "580px",
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 style={{ fontSize: "24px", fontWeight: "bold", color: currentTheme.colors.text, marginTop: 0 }}>
+            <h2 style={{ fontSize: "26px", fontWeight: "bold", color: currentTheme.colors.text, marginTop: 0, marginBottom: "25px" }}>
               ✏️ Edit Profile
             </h2>
 
             <form onSubmit={handleSaveProfile}>
-              <div style={{ marginBottom: "15px" }}>
-                <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold", fontSize: "14px", color: currentTheme.colors.text }}>
+              <div style={{ marginBottom: "20px" }}>
+                <label style={{ display: "block", marginBottom: "8px", fontWeight: "bold", fontSize: "15px", color: currentTheme.colors.text }}>
                   Display Name
                 </label>
                 <input
@@ -1530,17 +1767,19 @@ export default function ProfileDashboard() {
                   disabled={savingProfile}
                   style={{
                     width: "100%",
-                    padding: "12px",
+                    padding: "14px",
                     borderRadius: "8px",
                     border: `1px solid ${currentTheme.colors.border}`,
+                    backgroundColor: currentTheme.colors.cardHover,
+                    color: currentTheme.colors.text,
                     fontSize: "14px",
                     boxSizing: "border-box",
                   }}
                 />
               </div>
 
-              <div style={{ marginBottom: "15px" }}>
-                <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold", fontSize: "14px", color: currentTheme.colors.text }}>
+              <div style={{ marginBottom: "20px" }}>
+                <label style={{ display: "block", marginBottom: "8px", fontWeight: "bold", fontSize: "15px", color: currentTheme.colors.text }}>
                   Bio
                 </label>
                 <textarea
@@ -1549,9 +1788,11 @@ export default function ProfileDashboard() {
                   disabled={savingProfile}
                   style={{
                     width: "100%",
-                    padding: "12px",
+                    padding: "14px",
                     borderRadius: "8px",
                     border: `1px solid ${currentTheme.colors.border}`,
+                    backgroundColor: currentTheme.colors.cardHover,
+                    color: currentTheme.colors.text,
                     fontSize: "14px",
                     minHeight: "100px",
                     boxSizing: "border-box",
@@ -1560,25 +1801,105 @@ export default function ProfileDashboard() {
                 />
               </div>
 
-              <div style={{ marginBottom: "20px" }}>
-                <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold", fontSize: "14px", color: currentTheme.colors.text }}>
-                  Avatar (Blob ID)
+              {/* Avatar Upload Section */}
+              <div style={{ marginBottom: "25px" }}>
+                <label style={{ display: "block", marginBottom: "8px", fontWeight: "bold", fontSize: "15px", color: currentTheme.colors.text }}>
+                  Avatar
                 </label>
+                
+                {/* Avatar Preview */}
+                {avatarPreview && (
+                  <div style={{ marginBottom: "15px", textAlign: "center" }}>
+                    <img
+                      src={avatarPreview}
+                      alt="Avatar preview"
+                      style={{
+                        width: "100px",
+                        height: "100px",
+                        borderRadius: "50%",
+                        objectFit: "cover",
+                        border: `3px solid ${currentTheme.colors.primary}`,
+                      }}
+                      onError={() => setAvatarPreview("")}
+                    />
+                  </div>
+                )}
+
+                {/* Upload Button */}
                 <input
-                  type="text"
-                  value={editAvatar}
-                  onChange={(e) => setEditAvatar(e.target.value)}
-                  disabled={savingProfile}
-                  placeholder="Enter Walrus blob ID or leave empty"
-                  style={{
-                    width: "100%",
-                    padding: "12px",
-                    borderRadius: "8px",
-                    border: `1px solid ${currentTheme.colors.border}`,
-                    fontSize: "14px",
-                    boxSizing: "border-box",
+                  type="file"
+                  accept="image/*"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    
+                    if (file.size > 10 * 1024 * 1024) {
+                      alert("Image size must be less than 10MB");
+                      return;
+                    }
+                    
+                    setUploadingAvatar(true);
+                    try {
+                      const localUrl = URL.createObjectURL(file);
+                      setAvatarPreview(localUrl);
+                      
+                      const cloudinaryUrl = await uploadImageToCloudinary(file);
+                      setEditAvatarUrl(cloudinaryUrl);
+                      setEditAvatar("");
+                      setAvatarPreview(cloudinaryUrl);
+                    } catch (err: any) {
+                      alert("Upload failed: " + err.message);
+                      setAvatarPreview("");
+                    } finally {
+                      setUploadingAvatar(false);
+                    }
                   }}
+                  disabled={uploadingAvatar || savingProfile}
+                  id="avatar-upload-edit"
+                  style={{ display: "none" }}
                 />
+                <label
+                  htmlFor="avatar-upload-edit"
+                  style={{
+                    display: "block",
+                    padding: "14px",
+                    backgroundColor: uploadingAvatar ? "#ccc" : currentTheme.colors.cardHover,
+                    border: `2px dashed ${currentTheme.colors.primary}`,
+                    borderRadius: "8px",
+                    textAlign: "center",
+                    cursor: uploadingAvatar || savingProfile ? "not-allowed" : "pointer",
+                    fontSize: "14px",
+                    fontWeight: "600",
+                    color: currentTheme.colors.text,
+                  }}
+                >
+                  {uploadingAvatar ? "☁️ Uploading..." : "📤 Upload to Cloudinary"}
+                </label>
+                
+                {/* Manual URL Input */}
+                <div style={{ marginTop: "10px" }}>
+                  <input
+                    type="text"
+                    value={editAvatarUrl}
+                    onChange={(e) => {
+                      setEditAvatarUrl(e.target.value);
+                      setEditAvatar("");
+                      setAvatarPreview(e.target.value);
+                    }}
+                    disabled={savingProfile}
+                    placeholder="Or paste Cloudinary URL here"
+                    style={{
+                      width: "100%",
+                      padding: "10px",
+                      borderRadius: "6px",
+                      border: `1px solid ${currentTheme.colors.border}`,
+                      backgroundColor: currentTheme.colors.cardHover,
+                      color: currentTheme.colors.text,
+                      fontSize: "13px",
+                      boxSizing: "border-box",
+                    }}
+                  />
+                </div>
               </div>
 
               <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
@@ -1630,7 +1951,9 @@ export default function ProfileDashboard() {
             left: 0,
             right: 0,
             bottom: 0,
-            backgroundColor: "rgba(0, 0, 0, 0.7)",
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
@@ -1645,7 +1968,7 @@ export default function ProfileDashboard() {
               borderRadius: "20px",
               padding: "40px",
               width: "100%",
-              maxWidth: "500px",
+              maxWidth: "550px",
               textAlign: "center",
             }}
             onClick={(e) => e.stopPropagation()}
@@ -1811,10 +2134,11 @@ function NavItem({ icon, label, active, onClick, theme }: { icon: string; label:
   );
 }
 
-function Card({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
+function Card({ children, style, theme }: { children: React.ReactNode; style?: React.CSSProperties; theme?: Theme }) {
+  const currentTheme = theme || getTheme(localStorage.getItem("suitree_theme") || "default");
   return (
     <div style={{
-      backgroundColor: "white",
+      backgroundColor: currentTheme.colors.card,
       borderRadius: "12px",
       padding: "20px",
       boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
@@ -1897,7 +2221,7 @@ function LinkCard({ label, url, onEdit, onDelete, onAnalytics, deleting }: { lab
           <h4 style={{ fontSize: "16px", fontWeight: "600", margin: 0, color: "#1a202c" }}>
             {label}
           </h4>
-          <p style={{ fontSize: "13px", color: "#718096", margin: "2px 0 0" }}>
+          <p style={{ fontSize: "13px", color: "#718096", margin: "2px 0 0", wordBreak: "break-all" }}>
             {url}
           </p>
         </div>
@@ -1995,3 +2319,10 @@ const inputStyle: React.CSSProperties = {
   outline: "none",
   transition: "border-color 0.2s"
 };
+
+// CSS for placeholder styling
+const inputPlaceholderStyle = `
+  input::placeholder, textarea::placeholder {
+    opacity: 0.5;
+  }
+`;

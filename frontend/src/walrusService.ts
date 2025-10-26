@@ -5,13 +5,15 @@ const WALRUS_AGGREGATOR = "https://aggregator.walrus-testnet.walrus.space";
 const WALRUS_PUBLISHER = "https://publisher.walrus-testnet.walrus.space";
 const WALRUS_API_VERSION = "v1";
 
+// Development mode - bypass Walrus when developing locally
+const DEV_MODE = import.meta.env.DEV || false;
+
 /**
  * Get image URL from Walrus blob_id
  */
 export function getWalrusImageUrl(blobId: string): string {
   if (!blobId || blobId.trim() === "") {
-    console.warn("Empty blob ID provided");
-    return "";
+    return "";  // Return empty silently
   }
   return `${WALRUS_AGGREGATOR}/${WALRUS_API_VERSION}/${blobId}`;
 }
@@ -21,6 +23,12 @@ export function getWalrusImageUrl(blobId: string): string {
  * Returns the blob_id that can be stored on-chain
  */
 export async function uploadImageToWalrus(file: File): Promise<string> {
+  // Development mode: return mock blob ID for images
+  if (DEV_MODE) {
+    console.log("[DEV MODE] Skipping image upload, using mock blob ID");
+    return `mock_image_${Date.now()}`;
+  }
+
   try {
     console.log("Uploading file to Walrus:", file.name, file.size);
 
@@ -92,6 +100,7 @@ export interface ProfileContent {
   name: string;
   bio: string;
   avatar_blob_id: string;  // Walrus blob ID for avatar image
+  avatar_url?: string;      // Cloudinary or external URL for avatar image
   links: Array<{ label: string; url: string }>;
 }
 
@@ -100,6 +109,18 @@ export interface ProfileContent {
  * Returns the blob_id for the profile content
  */
 export async function uploadProfileToWalrus(profileData: ProfileContent): Promise<string> {
+  // Development mode: return mock blob ID and store data locally
+  if (DEV_MODE) {
+    console.log("[DEV MODE] Skipping Walrus upload, using mock blob ID");
+    console.log("Profile data:", profileData);
+    // Generate mock blob ID
+    const mockBlobId = `mock_blob_${Date.now()}`;
+    // Store the profile data in localStorage
+    localStorage.setItem(`walrus_mock_${mockBlobId}`, JSON.stringify(profileData));
+    console.log("[DEV MODE] Stored mock profile data for", mockBlobId);
+    return mockBlobId;
+  }
+
   try {
     console.log("Uploading profile data to Walrus:", profileData);
 
@@ -145,6 +166,20 @@ export async function uploadProfileToWalrus(profileData: ProfileContent): Promis
  * Returns the profile content
  */
 export async function fetchProfileFromWalrus(blobId: string): Promise<ProfileContent> {
+  // Development mode: retrieve mock data from localStorage
+  if (DEV_MODE && blobId.startsWith("mock_blob_")) {
+    console.log("[DEV MODE] Fetching mock blob from localStorage:", blobId);
+    const storedData = localStorage.getItem(`walrus_mock_${blobId}`);
+    if (storedData) {
+      const profileData = JSON.parse(storedData);
+      console.log("[DEV MODE] Retrieved mock profile data:", profileData);
+      return profileData;
+    } else {
+      console.warn("[DEV MODE] No mock data found for", blobId);
+      throw new Error("Mock blob ID not found in localStorage");
+    }
+  }
+
   try {
     if (!blobId || blobId.trim() === "") {
       throw new Error("Empty blob ID provided");
