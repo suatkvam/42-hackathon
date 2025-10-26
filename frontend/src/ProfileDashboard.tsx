@@ -9,6 +9,9 @@ import { uploadImageToCloudinary } from "./cloudinaryService";
 import { PACKAGE_ID, MODULE_NAME, REGISTRY_ID } from "./constants";
 import { getTheme, getThemeNames, type Theme } from "./themes";
 import { getAnalytics, isAnalyticsEnabled, type AnalyticsStats } from "./analyticsService";
+import { parseAvatarId, getAvatarById } from "./avatarNftService";
+import { FaHome, FaPalette, FaUser, FaChartBar, FaTrash, FaClipboard, FaEye, FaEdit, FaPlus, FaLink, FaMobile, FaDesktop, FaTabletAlt, FaClock, FaCalendar, FaDoorOpen, FaTree, FaGlobeAmericas, FaLightbulb, FaExclamationTriangle, FaTimes, FaTwitter, FaEnvelope, FaWhatsapp, FaQuestionCircle } from "react-icons/fa";
+import { MdRefresh } from "react-icons/md";
 
 export default function ProfileDashboard() {
   const account = useCurrentAccount();
@@ -100,6 +103,7 @@ export default function ProfileDashboard() {
               bio: profileContent.bio,
               avatar: profileContent.avatar_blob_id,
               avatarUrl: profileContent.avatar_url,  // Cloudinary URL
+              nftAvatarId: fields.nft_avatar_id || 0,  // NFT Avatar ID
               links: profileContent.links.map(link => ({
                 key: link.label,
                 value: link.url,
@@ -132,6 +136,7 @@ export default function ProfileDashboard() {
               name: fields.name || "User",
               bio: fields.bio || "",
               avatar: fields.blob_id || "",
+              nftAvatarId: fields.nft_avatar_id || 0,  // NFT Avatar ID
               links: parsedLinks,
               theme: themeName,
               username_change_count: fields.username_change_count || 0,
@@ -586,7 +591,7 @@ export default function ProfileDashboard() {
         backgroundColor: "#f7fafc"
       }}>
         <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: "48px", marginBottom: "20px" }}>🌳</div>
+          <div style={{ fontSize: "48px", marginBottom: "20px", display: "flex", justifyContent: "center", color: "#8b5cf6" }}><FaTree /></div>
           <p style={{ color: "#666", fontSize: "16px" }}>Loading your profile...</p>
         </div>
       </div>
@@ -604,6 +609,10 @@ export default function ProfileDashboard() {
         textarea::placeholder {
           color: ${currentTheme.colors.textSecondary};
           opacity: 0.6;
+        }
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
         }
       `}</style>
       {/* Sidebar */}
@@ -626,15 +635,18 @@ export default function ProfileDashboard() {
           fontWeight: "bold", 
           marginBottom: "30px",
           color: currentTheme.colors.text,
-          cursor: "pointer"
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          gap: "8px"
         }} onClick={() => navigate("/")}>
-          🌳 42Tree
+          <FaTree /> 42Tree
         </div>
 
-        <NavItem icon="🏠" label="My Linktree" active theme={currentTheme} />
-        <NavItem icon="🎨" label="Appearance" onClick={() => setShowThemeModal(true)} theme={currentTheme} />
-        <NavItem icon="👤" label="Change Username" onClick={() => setShowChangeUsername(true)} theme={currentTheme} />
-        <NavItem icon="📊" label="Analytics" onClick={async () => {
+        <NavItem icon={<FaHome />} label="My Linktree" active theme={currentTheme} />
+        <NavItem icon={<FaPalette />} label="Appearance" onClick={() => setShowThemeModal(true)} theme={currentTheme} />
+        <NavItem icon={<FaUser />} label="Change Username" onClick={() => setShowChangeUsername(true)} theme={currentTheme} />
+        <NavItem icon={<FaChartBar />} label="Analytics" onClick={async () => {
           if (!isAnalyticsEnabled()) {
             alert("Analytics is not configured. Please add Supabase credentials to .env file.");
             return;
@@ -645,11 +657,11 @@ export default function ProfileDashboard() {
           setAnalyticsData(stats);
           setLoadingAnalytics(false);
         }} theme={currentTheme} />
-        <NavItem icon="🗑️" label="Delete Account" onClick={() => setShowDeleteAccount(true)} theme={currentTheme} />
+        <NavItem icon={<FaTrash />} label="Delete Account" onClick={() => setShowDeleteAccount(true)} theme={currentTheme} />
         
         <div style={{ marginTop: "auto", paddingTop: "20px", borderTop: `1px solid ${currentTheme.colors.border}` }}>
           <NavItem 
-            icon="🚪" 
+            icon={<FaDoorOpen />}
             label="Back to Home" 
             onClick={() => navigate("/")} 
             theme={currentTheme}
@@ -687,10 +699,10 @@ export default function ProfileDashboard() {
             </div>
             <div style={{ display: "flex", gap: "10px" }}>
               <Button onClick={() => setShowShareModal(true)} variant="secondary">
-                📋 Share
+                <FaClipboard style={{ display: "inline", marginRight: "6px" }} /> Share
               </Button>
               <Button onClick={() => window.open(`/${userProfile?.username}`, '_blank')}>
-                👁️ Preview
+                <FaEye style={{ display: "inline", marginRight: "6px" }} /> Preview
               </Button>
             </div>
           </div>
@@ -714,19 +726,31 @@ export default function ProfileDashboard() {
                     overflow: "hidden"
                   }}>
                     {(() => {
-                      // Determine avatar source with proper checks
+                      // Priority: NFT Avatar > Cloudinary URL > Walrus Blob > Default
                       let avatarSrc = "";
-                      if (userProfile?.avatarUrl && userProfile.avatarUrl.trim() !== "") {
-                        avatarSrc = userProfile.avatarUrl;
-                      } else if (userProfile?.avatar && userProfile.avatar.trim() !== "") {
-                        avatarSrc = getWalrusImageUrl(userProfile.avatar);
-                      }
                       
-                      console.log("[DEBUG] Avatar display:", {
-                        avatarUrl: userProfile?.avatarUrl,
-                        avatar: userProfile?.avatar,
-                        finalSrc: avatarSrc
-                      });
+                      // 1. Check NFT Avatar
+                      if (userProfile?.nftAvatarId && userProfile.nftAvatarId > 0) {
+                        const nftAvatar = getAvatarById(userProfile.nftAvatarId);
+                        if (nftAvatar) {
+                          avatarSrc = nftAvatar.imageUrl;
+                        }
+                      }
+                      // 2. Check Cloudinary URL
+                      else if (userProfile?.avatarUrl && userProfile.avatarUrl.trim() !== "") {
+                        avatarSrc = userProfile.avatarUrl;
+                      }
+                      // 3. Check Walrus Blob
+                      else if (userProfile?.avatar && userProfile.avatar.trim() !== "") {
+                        // Check if it's an NFT avatar string
+                        const nftId = parseAvatarId(userProfile.avatar);
+                        if (nftId) {
+                          const nftAvatar = getAvatarById(nftId);
+                          avatarSrc = nftAvatar ? nftAvatar.imageUrl : "";
+                        } else {
+                          avatarSrc = getWalrusImageUrl(userProfile.avatar);
+                        }
+                      }
                       
                       return avatarSrc ? (
                         <img 
@@ -750,7 +774,7 @@ export default function ProfileDashboard() {
                     </p>
                   </div>
                   <Button variant="secondary" size="small" onClick={handleEditProfile}>
-                    ✏️ Edit
+                    <FaEdit style={{ display: "inline", marginRight: "6px" }} /> Edit
                   </Button>
                 </div>
               </Card>
@@ -761,7 +785,7 @@ export default function ProfileDashboard() {
                 variant="primary"
                 style={{ width: "100%" }}
               >
-                ➕ Add Link
+                <FaPlus style={{ display: "inline", marginRight: "6px" }} /> Add Link
               </Button>
 
               {/* Add Link Form */}
@@ -829,12 +853,13 @@ export default function ProfileDashboard() {
                         setLoadingAnalytics(false);
                       }}
                       deleting={deletingLink === link.key}
+                      theme={currentTheme}
                     />
                   ))
                 ) : (
                   <Card>
                     <div style={{ textAlign: "center", padding: "40px", color: currentTheme.colors.textSecondary }}>
-                      <div style={{ fontSize: "48px", marginBottom: "10px" }}>🔗</div>
+                      <div style={{ fontSize: "48px", marginBottom: "10px" }}><FaLink /></div>
                       <p>No links yet. Add your first link!</p>
                     </div>
                   </Card>
@@ -862,7 +887,7 @@ export default function ProfileDashboard() {
                       borderRadius: "4px",
                       fontSize: "12px"
                     }}>
-                      📱
+                      <FaMobile />
                     </span>
                   </div>
                 </div>
@@ -1003,8 +1028,8 @@ export default function ProfileDashboard() {
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 style={{ fontSize: "24px", fontWeight: "bold", color: currentTheme.colors.text, marginTop: 0 }}>
-              🎨 Choose Theme
+            <h2 style={{ fontSize: "24px", fontWeight: "bold", color: currentTheme.colors.text, marginTop: 0, display: "flex", alignItems: "center", gap: "10px" }}>
+              <FaPalette /> Choose Theme
             </h2>
             <p style={{ color: currentTheme.colors.textSecondary, marginBottom: "20px" }}>
               Customize your dashboard
@@ -1126,14 +1151,14 @@ export default function ProfileDashboard() {
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 style={{ fontSize: "26px", fontWeight: "bold", color: currentTheme.colors.text, marginTop: 0, marginBottom: "20px" }}>
-              👤 Change Username
+            <h2 style={{ fontSize: "26px", fontWeight: "bold", color: currentTheme.colors.text, marginTop: 0, marginBottom: "20px", display: "flex", alignItems: "center", gap: "10px" }}>
+              <FaUser /> Change Username
             </h2>
             <p style={{ color: currentTheme.colors.textSecondary, marginBottom: "20px", fontSize: "14px" }}>
               Current: <strong>@{userProfile?.username}</strong>
             </p>
-            <p style={{ color: currentTheme.colors.textSecondary, marginBottom: "20px", fontSize: "13px", backgroundColor: "#f0f9ff", padding: "10px", borderRadius: "8px" }}>
-              💡 You can change your username anytime.
+            <p style={{ color: currentTheme.colors.textSecondary, marginBottom: "20px", fontSize: "13px", backgroundColor: "#f0f9ff", padding: "10px", borderRadius: "8px", display: "flex", alignItems: "center", gap: "8px" }}>
+              <FaLightbulb style={{ flexShrink: 0 }} /> You can change your username anytime.
             </p>
 
             <form onSubmit={handleChangeUsername}>
@@ -1227,14 +1252,14 @@ export default function ProfileDashboard() {
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 style={{ fontSize: "26px", fontWeight: "bold", color: currentTheme.colors.danger, marginTop: 0, marginBottom: "20px" }}>
-              🗑️ Delete Account
+            <h2 style={{ fontSize: "26px", fontWeight: "bold", color: currentTheme.colors.danger, marginTop: 0, marginBottom: "20px", display: "flex", alignItems: "center", gap: "10px" }}>
+              <FaTrash /> Delete Account
             </h2>
             <p style={{ color: currentTheme.colors.text, marginBottom: "20px", fontSize: "14px" }}>
               This action cannot be undone. Your profile and all links will be permanently deleted.
             </p>
-            <p style={{ color: currentTheme.colors.danger, marginBottom: "20px", fontSize: "13px", backgroundColor: "#fee", padding: "10px", borderRadius: "8px" }}>
-              ⚠️ <strong>WARNING:</strong> This action cannot be undone!
+            <p style={{ color: currentTheme.colors.danger, marginBottom: "20px", fontSize: "13px", backgroundColor: "#fee", padding: "10px", borderRadius: "8px", display: "flex", alignItems: "center", gap: "8px" }}>
+              <FaExclamationTriangle style={{ flexShrink: 0 }} /> <strong>WARNING:</strong> This action cannot be undone!
             </p>
 
             <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
@@ -1309,8 +1334,8 @@ export default function ProfileDashboard() {
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-              <h2 style={{ fontSize: "24px", fontWeight: "bold", color: currentTheme.colors.text, margin: 0 }}>
-                📊 Analytics
+              <h2 style={{ fontSize: "24px", fontWeight: "bold", color: currentTheme.colors.text, margin: 0, display: "flex", alignItems: "center", gap: "10px" }}>
+                <FaChartBar /> Analytics
               </h2>
               <button
                 onClick={() => setShowAnalytics(false)}
@@ -1320,26 +1345,28 @@ export default function ProfileDashboard() {
                   border: "none",
                   fontSize: "24px",
                   cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center"
                 }}
               >
-                ✕
+                <FaTimes />
               </button>
             </div>
 
             {loadingAnalytics ? (
               <div style={{ textAlign: "center", padding: "40px", color: currentTheme.colors.textSecondary }}>
-                <div style={{ fontSize: "48px", marginBottom: "20px" }}>🔄</div>
+                <div style={{ fontSize: "48px", marginBottom: "20px", display: "flex", justifyContent: "center" }}><MdRefresh style={{ animation: "spin 1s linear infinite" }} /></div>
                 <p>Loading analytics...</p>
               </div>
             ) : !analyticsData ? (
               <div style={{ textAlign: "center", padding: "40px", color: currentTheme.colors.textSecondary }}>
-                <div style={{ fontSize: "48px", marginBottom: "20px" }}>🚧</div>
+                <div style={{ fontSize: "48px", marginBottom: "20px", display: "flex", justifyContent: "center" }}><FaExclamationTriangle /></div>
                 <p>Analytics not available</p>
                 <p style={{ fontSize: "14px", marginTop: "10px" }}>Make sure Supabase is configured in .env file</p>
               </div>
             ) : analyticsData.totalClicks === 0 ? (
               <div style={{ textAlign: "center", padding: "40px", color: currentTheme.colors.textSecondary }}>
-                <div style={{ fontSize: "48px", marginBottom: "20px" }}>📊</div>
+                <div style={{ fontSize: "48px", marginBottom: "20px", display: "flex", justifyContent: "center" }}><FaChartBar /></div>
                 <p>No clicks tracked yet</p>
                 <p style={{ fontSize: "14px", marginTop: "10px" }}>Start sharing your profile to see analytics</p>
               </div>
@@ -1422,8 +1449,8 @@ export default function ProfileDashboard() {
 
                 {/* Traffic Source */}
                 <div style={{ marginBottom: "30px" }}>
-                  <h3 style={{ fontSize: "18px", fontWeight: "600", color: currentTheme.colors.text, marginBottom: "15px" }}>
-                    🌐 Traffic Sources
+                  <h3 style={{ fontSize: "18px", fontWeight: "600", color: currentTheme.colors.text, marginBottom: "15px", display: "flex", alignItems: "center", gap: "8px" }}>
+                    <FaGlobeAmericas /> Traffic Sources
                   </h3>
                   <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                     {Object.entries(analyticsData.clicksByReferrer)
@@ -1470,18 +1497,18 @@ export default function ProfileDashboard() {
 
                 {/* Device Breakdown */}
                 <div style={{ marginBottom: "30px" }}>
-                  <h3 style={{ fontSize: "18px", fontWeight: "600", color: currentTheme.colors.text, marginBottom: "15px" }}>
-                    📱 Devices
+                  <h3 style={{ fontSize: "18px", fontWeight: "600", color: currentTheme.colors.text, marginBottom: "15px", display: "flex", alignItems: "center", gap: "8px" }}>
+                    <FaMobile /> Devices
                   </h3>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "10px" }}>
                     {Object.entries(analyticsData.clicksByDevice).map(([device, count]) => {
                       const total = analyticsData.totalClicks;
                       const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
-                      const icons: Record<string, string> = {
-                        mobile: "📱",
-                        desktop: "💻",
-                        tablet: "📲",
-                        other: "❓"
+                      const icons: Record<string, React.ReactNode> = {
+                        mobile: <FaMobile />,
+                        desktop: <FaDesktop />,
+                        tablet: <FaTabletAlt />,
+                        other: <FaQuestionCircle />
                       };
                       return (
                         <div
@@ -1493,8 +1520,8 @@ export default function ProfileDashboard() {
                             textAlign: "center",
                           }}
                         >
-                          <div style={{ fontSize: "32px", marginBottom: "5px" }}>
-                            {icons[device] || "❓"}
+                          <div style={{ fontSize: "32px", marginBottom: "5px", display: "flex", justifyContent: "center", color: currentTheme.colors.primary }}>
+                            {icons[device] || <FaQuestionCircle />}
                           </div>
                           <div style={{ fontSize: "14px", fontWeight: "600", color: currentTheme.colors.text, textTransform: "capitalize", marginBottom: "3px" }}>
                             {device}
@@ -1510,8 +1537,8 @@ export default function ProfileDashboard() {
 
                 {/* Peak Hours */}
                 <div style={{ marginBottom: "30px" }}>
-                  <h3 style={{ fontSize: "18px", fontWeight: "600", color: currentTheme.colors.text, marginBottom: "15px" }}>
-                    ⏰ Peak Hours (Most Active Times)
+                  <h3 style={{ fontSize: "18px", fontWeight: "600", color: currentTheme.colors.text, marginBottom: "15px", display: "flex", alignItems: "center", gap: "8px" }}>
+                    <FaClock /> Peak Hours (Most Active Times)
                   </h3>
                   <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                     {Object.entries(analyticsData.clicksByHour)
@@ -1559,8 +1586,8 @@ export default function ProfileDashboard() {
 
                 {/* Clicks by Day */}
                 <div>
-                  <h3 style={{ fontSize: "18px", fontWeight: "600", color: currentTheme.colors.text, marginBottom: "15px" }}>
-                    📅 Recent Activity (Last 7 Days)
+                  <h3 style={{ fontSize: "18px", fontWeight: "600", color: currentTheme.colors.text, marginBottom: "15px", display: "flex", alignItems: "center", gap: "8px" }}>
+                    <FaCalendar /> Recent Activity (Last 7 Days)
                   </h3>
                   <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                     {Object.entries(analyticsData.clicksByDay)
@@ -1624,8 +1651,8 @@ export default function ProfileDashboard() {
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 style={{ fontSize: "26px", fontWeight: "bold", color: currentTheme.colors.text, marginTop: 0, marginBottom: "25px" }}>
-              ✏️ Edit Link
+            <h2 style={{ fontSize: "26px", fontWeight: "bold", color: currentTheme.colors.text, marginTop: 0, marginBottom: "25px", display: "flex", alignItems: "center", gap: "10px" }}>
+              <FaEdit /> Edit Link
             </h2>
 
             <form onSubmit={handleSaveLink}>
@@ -1750,8 +1777,8 @@ export default function ProfileDashboard() {
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 style={{ fontSize: "26px", fontWeight: "bold", color: currentTheme.colors.text, marginTop: 0, marginBottom: "25px" }}>
-              ✏️ Edit Profile
+            <h2 style={{ fontSize: "26px", fontWeight: "bold", color: currentTheme.colors.text, marginTop: 0, marginBottom: "25px", display: "flex", alignItems: "center", gap: "10px" }}>
+              <FaEdit /> Edit Profile
             </h2>
 
             <form onSubmit={handleSaveProfile}>
@@ -1973,8 +2000,8 @@ export default function ProfileDashboard() {
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 style={{ fontSize: "28px", fontWeight: "bold", color: currentTheme.colors.text, marginTop: 0, marginBottom: "10px" }}>
-              📋 Share Profile
+            <h2 style={{ fontSize: "28px", fontWeight: "bold", color: currentTheme.colors.text, marginTop: 0, marginBottom: "10px", display: "flex", alignItems: "center", gap: "10px" }}>
+              <FaClipboard /> Share Profile
             </h2>
             <p style={{ color: currentTheme.colors.textSecondary, marginBottom: "30px", fontSize: "14px" }}>
               Scan the QR code or copy the link
@@ -2046,7 +2073,7 @@ export default function ProfileDashboard() {
                 onMouseEnter={(e) => e.currentTarget.style.backgroundColor = currentTheme.colors.primaryHover}
                 onMouseLeave={(e) => e.currentTarget.style.backgroundColor = currentTheme.colors.primary}
               >
-                📋 Copy
+                <FaClipboard style={{ display: "inline", marginRight: "6px" }} /> Copy
               </button>
             </div>
 
@@ -2058,19 +2085,19 @@ export default function ProfileDashboard() {
               marginBottom: "20px"
             }}>
               <SocialShareButton
-                icon="🐦"
+                icon={<FaTwitter />}
                 label="Twitter"
                 onClick={() => window.open(`https://twitter.com/intent/tweet?text=Check out my SuiTree profile!&url=${encodeURIComponent(getProfileUrl())}`, '_blank')}
                 theme={currentTheme}
               />
               <SocialShareButton
-                icon="📧"
+                icon={<FaEnvelope />}
                 label="Email"
                 onClick={() => window.location.href = `mailto:?subject=My SuiTree Profile&body=Check out my profile: ${getProfileUrl()}`}
                 theme={currentTheme}
               />
               <SocialShareButton
-                icon="📱"
+                icon={<FaWhatsapp />}
                 label="WhatsApp"
                 onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent('Check out my SuiTree profile: ' + getProfileUrl())}`, '_blank')}
                 theme={currentTheme}
@@ -2104,7 +2131,7 @@ export default function ProfileDashboard() {
 }
 
 // Helper Components
-function NavItem({ icon, label, active, onClick, theme }: { icon: string; label: string; active?: boolean; onClick?: () => void; theme: Theme }) {
+function NavItem({ icon, label, active, onClick, theme }: { icon: React.ReactNode; label: string; active?: boolean; onClick?: () => void; theme: Theme }) {
   return (
     <div
       onClick={onClick}
@@ -2128,7 +2155,7 @@ function NavItem({ icon, label, active, onClick, theme }: { icon: string; label:
         if (!active) e.currentTarget.style.backgroundColor = "transparent";
       }}
     >
-      <span style={{ fontSize: "18px" }}>{icon}</span>
+      <span style={{ fontSize: "18px", display: "flex", alignItems: "center" }}>{icon}</span>
       <span>{label}</span>
     </div>
   );
@@ -2212,27 +2239,28 @@ function Button({
   );
 }
 
-function LinkCard({ label, url, onEdit, onDelete, onAnalytics, deleting }: { label: string; url: string; onEdit: () => void; onDelete: () => void; onAnalytics: () => void; deleting?: boolean }) {
+function LinkCard({ label, url, onEdit, onDelete, onAnalytics, deleting, theme }: { label: string; url: string; onEdit: () => void; onDelete: () => void; onAnalytics: () => void; deleting?: boolean; theme: Theme }) {
   return (
     <Card>
       <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-        <div style={{ fontSize: "24px" }}>🔗</div>
+        <div style={{ fontSize: "24px", display: "flex", alignItems: "center", color: theme.colors.primary }}><FaLink /></div>
         <div style={{ flex: 1 }}>
-          <h4 style={{ fontSize: "16px", fontWeight: "600", margin: 0, color: "#1a202c" }}>
+          <h4 style={{ fontSize: "16px", fontWeight: "600", margin: 0, color: theme.colors.text }}>
             {label}
           </h4>
-          <p style={{ fontSize: "13px", color: "#718096", margin: "2px 0 0", wordBreak: "break-all" }}>
+          <p style={{ fontSize: "13px", color: theme.colors.textSecondary, margin: "2px 0 0", wordBreak: "break-all" }}>
             {url}
           </p>
         </div>
         <div style={{ display: "flex", gap: "8px" }}>
-          <IconButton icon="✏️" onClick={onEdit} />
-          <IconButton icon="📊" onClick={onAnalytics} />
+          <IconButton icon={<FaEdit />} onClick={onEdit} theme={theme} />
+          <IconButton icon={<FaChartBar />} onClick={onAnalytics} theme={theme} />
           <IconButton 
-            icon={deleting ? "⏳" : "🗑️"} 
+            icon={deleting ? <FaClock /> : <FaTrash />}
             onClick={onDelete} 
             danger 
             disabled={deleting}
+            theme={theme}
           />
         </div>
       </div>
@@ -2240,7 +2268,7 @@ function LinkCard({ label, url, onEdit, onDelete, onAnalytics, deleting }: { lab
   );
 }
 
-function IconButton({ icon, onClick, danger, disabled }: { icon: string; onClick: () => void; danger?: boolean; disabled?: boolean }) {
+function IconButton({ icon, onClick, danger, disabled, theme }: { icon: React.ReactNode; onClick: () => void; danger?: boolean; disabled?: boolean; theme: Theme }) {
   return (
     <button
       onClick={onClick}
@@ -2249,8 +2277,9 @@ function IconButton({ icon, onClick, danger, disabled }: { icon: string; onClick
         width: "36px",
         height: "36px",
         borderRadius: "8px",
-        border: "1px solid #e2e8f0",
-        backgroundColor: "white",
+        border: `1px solid ${theme.colors.border}`,
+        backgroundColor: theme.colors.card,
+        color: danger ? "#e53e3e" : theme.colors.text,
         cursor: disabled ? "not-allowed" : "pointer",
         fontSize: "14px",
         display: "flex",
@@ -2261,12 +2290,12 @@ function IconButton({ icon, onClick, danger, disabled }: { icon: string; onClick
       }}
       onMouseEnter={(e) => {
         if (!disabled) {
-          e.currentTarget.style.backgroundColor = danger ? "#fee" : "#f7fafc";
+          e.currentTarget.style.backgroundColor = danger ? "#fee" : theme.colors.cardHover;
         }
       }}
       onMouseLeave={(e) => {
         if (!disabled) {
-          e.currentTarget.style.backgroundColor = "white";
+          e.currentTarget.style.backgroundColor = theme.colors.card;
         }
       }}
     >
@@ -2275,7 +2304,7 @@ function IconButton({ icon, onClick, danger, disabled }: { icon: string; onClick
   );
 }
 
-function SocialShareButton({ icon, label, onClick, theme }: { icon: string; label: string; onClick: () => void; theme: Theme }) {
+function SocialShareButton({ icon, label, onClick, theme }: { icon: React.ReactNode; label: string; onClick: () => void; theme: Theme }) {
   return (
     <button
       onClick={onClick}
@@ -2303,7 +2332,7 @@ function SocialShareButton({ icon, label, onClick, theme }: { icon: string; labe
         e.currentTarget.style.transform = "translateY(0)";
       }}
     >
-      <span style={{ fontSize: "24px" }}>{icon}</span>
+      <span style={{ fontSize: "24px", display: "flex", alignItems: "center" }}>{icon}</span>
       <span style={{ fontSize: "12px" }}>{label}</span>
     </button>
   );

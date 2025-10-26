@@ -5,6 +5,7 @@ import { PACKAGE_ID, MODULE_NAME, REGISTRY_ID } from "./constants";
 import { uploadImageToWalrus, getWalrusImageUrl, uploadProfileToWalrus, ProfileContent } from "./walrusService";
 import { uploadImageToCloudinary, getOptimizedCloudinaryUrl } from "./cloudinaryService";
 import { getTheme, getThemeNames } from "./themes";
+import { getRandomAvatarsForUser, avatarIdToString, parseAvatarId } from "./avatarNftService";
 
 interface CreateProfileProps {
   onClose: () => void;
@@ -33,17 +34,64 @@ export default function CreateProfile({ onClose, onSuccess, isEditing = false, p
   const [error, setError] = useState("");
   const [uploading, setUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState(existingProfile?.avatar ? getWalrusImageUrl(existingProfile.avatar) : "");
+  const [selectedNftAvatarId, setSelectedNftAvatarId] = useState<number | null>(null);
+  const [nftAvatarOptions, setNftAvatarOptions] = useState<Array<{id: number, path: string, imageUrl: string}>>([]);
+  const [loadingAvatars, setLoadingAvatars] = useState(false);
 
   const { mutate: signAndExecute } = useSignAndExecuteTransaction();
   const suiClient = useSuiClient();
 
-  // Default avatar options (placeholder blob IDs or data URLs)
-  const defaultAvatars = [
-    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Ccircle cx='50' cy='50' r='40' fill='%234299e1'/%3E%3Ctext x='50' y='50' text-anchor='middle' dy='.3em' font-size='40' fill='white'%3E👤%3C/text%3E%3C/svg%3E",
-    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Ccircle cx='50' cy='50' r='40' fill='%2348bb78'/%3E%3Ctext x='50' y='50' text-anchor='middle' dy='.3em' font-size='40' fill='white'%3E🚀%3C/text%3E%3C/svg%3E",
-    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Ccircle cx='50' cy='50' r='40' fill='%23ed8936'/%3E%3Ctext x='50' y='50' text-anchor='middle' dy='.3em' font-size='40' fill='white'%3E🌟%3C/text%3E%3C/svg%3E",
-    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Ccircle cx='50' cy='50' r='40' fill='%239f7aea'/%3E%3Ctext x='50' y='50' text-anchor='middle' dy='.3em' font-size='40' fill='white'%3E👾%3C/text%3E%3C/svg%3E",
-  ];
+  // Fetch assigned avatars and generate random options on mount (only for new profiles)
+  React.useEffect(() => {
+    if (!isEditing) {
+      fetchAvailableAvatars();
+    }
+  }, [isEditing]);
+
+  const fetchAvailableAvatars = async () => {
+    setLoadingAvatars(true);
+    try {
+      // Fetch assigned avatar IDs from blockchain
+      const result = await suiClient.devInspectTransactionBlock({
+        transactionBlock: {
+          kind: 'moveCall',
+          data: {
+            packageObjectId: PACKAGE_ID,
+            module: MODULE_NAME,
+            function: 'get_assigned_avatar_ids',
+            arguments: [REGISTRY_ID],
+          },
+        },
+        sender: '0x0000000000000000000000000000000000000000000000000000000000000000',
+      });
+      
+      // Parse assigned avatar IDs (simplified - adjust based on actual response)
+      const assignedIds: number[] = []; // TODO: Parse from result
+      
+      // Get 3 random unassigned avatars
+      const randomAvatars = getRandomAvatarsForUser(assignedIds);
+      setNftAvatarOptions(randomAvatars);
+      
+      // Pre-select first avatar
+      if (randomAvatars.length > 0) {
+        setSelectedNftAvatarId(randomAvatars[0].id);
+        setPreviewUrl(randomAvatars[0].imageUrl);
+        setAvatarBlobId(avatarIdToString(randomAvatars[0].id));
+      }
+    } catch (err) {
+      console.error("Failed to fetch avatar options:", err);
+      // Fallback: generate random avatars without checking assignments
+      const fallbackAvatars = getRandomAvatarsForUser([]);
+      setNftAvatarOptions(fallbackAvatars);
+      if (fallbackAvatars.length > 0) {
+        setSelectedNftAvatarId(fallbackAvatars[0].id);
+        setPreviewUrl(fallbackAvatars[0].imageUrl);
+        setAvatarBlobId(avatarIdToString(fallbackAvatars[0].id));
+      }
+    } finally {
+      setLoadingAvatars(false);
+    }
+  };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -136,14 +184,21 @@ export default function CreateProfile({ onClose, onSuccess, isEditing = false, p
           ],
         });
       } else {
-        // Create new profile
+        // Create new profile with NFT avatar
+        if (!selectedNftAvatarId) {
+          setError("Please select an avatar");
+          setLoading(false);
+          return;
+        }
+        
         tx.moveCall({
-          target: `${PACKAGE_ID}::${MODULE_NAME}::create_profile_v2`,
+          target: `${PACKAGE_ID}::${MODULE_NAME}::create_profile_v3`,
           arguments: [
             tx.object(REGISTRY_ID),
             tx.pure.string(username),
             tx.pure.string(contentBlobId),
             tx.pure.string(theme),
+            tx.pure.u64(selectedNftAvatarId),
           ],
         });
       }
@@ -294,188 +349,141 @@ export default function CreateProfile({ onClose, onSuccess, isEditing = false, p
               </div>
             )}
 
-            {/* Default Avatar Selection */}
-            <div style={{ marginBottom: "10px" }}>
-              <div style={{ fontSize: "12px", color: "#666", marginBottom: "5px" }}>
-                Select default avatar:
-              </div>
-              <div style={{ display: "flex", gap: "10px", justifyContent: "center", marginBottom: "10px" }}>
-                {defaultAvatars.map((avatar, index) => (
-                  <img
-                    key={index}
-                    src={avatar}
-                    alt={`Default avatar ${index + 1}`}
-                    onClick={() => {
-                      setAvatarBlobId(avatar);
-                      setAvatarUrl("");
-                      setPreviewUrl(avatar);
-                      setError("");
-                    }}
-                    style={{
-                      width: "50px",
-                      height: "50px",
-                      borderRadius: "50%",
-                      cursor: "pointer",
-                      border: avatarBlobId === avatar ? "3px solid #c96d37" : "2px solid #ccc",
-                      objectFit: "cover",
-                    }}
-                  />
-                ))}
-              </div>
-            </div>
-
-            {/* Upload Method Selection */}
-            <div style={{ marginBottom: "10px" }}>
-              <div style={{ fontSize: "12px", color: "#666", marginBottom: "5px" }}>
-                Upload method:
-              </div>
-              <div style={{ display: "flex", gap: "10px" }}>
-                <button
-                  type="button"
-                  onClick={() => setUploadMethod("cloudinary")}
-                  style={{
-                    flex: 1,
-                    padding: "8px",
-                    backgroundColor: uploadMethod === "cloudinary" ? "#4299e1" : "#f0f0f0",
-                    color: uploadMethod === "cloudinary" ? "white" : "#666",
-                    border: "none",
-                    borderRadius: "5px",
-                    cursor: "pointer",
-                    fontWeight: "bold",
-                    fontSize: "12px",
-                  }}
-                >
-                  ☁️ Cloudinary
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setUploadMethod("walrus")}
-                  style={{
-                    flex: 1,
-                    padding: "8px",
-                    backgroundColor: uploadMethod === "walrus" ? "#4299e1" : "#f0f0f0",
-                    color: uploadMethod === "walrus" ? "white" : "#666",
-                    border: "none",
-                    borderRadius: "5px",
-                    cursor: "pointer",
-                    fontWeight: "bold",
-                    fontSize: "12px",
-                  }}
-                >
-                  🐘 Walrus
-                </button>
-              </div>
-            </div>
-
-            {/* Upload Button */}
-            <div style={{ marginBottom: "10px" }}>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleFileUpload}
-                disabled={uploading}
-                id="avatar-upload"
-                style={{ display: "none" }}
-              />
-              <label
-                htmlFor="avatar-upload"
-                style={{
-                  display: "block",
-                  padding: "10px",
-                  backgroundColor: uploading ? "#ccc" : "#f0f0f0",
-                  border: `2px dashed ${uploadMethod === "cloudinary" ? "#4299e1" : "#c96d37"}`,
-                  borderRadius: "5px",
-                  textAlign: "center",
-                  cursor: uploading ? "not-allowed" : "pointer",
-                  fontWeight: "bold",
-                  color: uploadMethod === "cloudinary" ? "#4299e1" : "#c96d37",
-                }}
-              >
-                {uploading 
-                  ? `Uploading to ${uploadMethod === "cloudinary" ? "Cloudinary" : "Walrus"}...` 
-                  : `📤 Upload to ${uploadMethod === "cloudinary" ? "Cloudinary" : "Walrus"}`
-                }
-              </label>
-            </div>
-
-            {/* Manual Input */}
-            {uploadMethod === "cloudinary" && (
-              <div>
-                <div style={{ fontSize: "12px", color: "#666", marginBottom: "5px" }}>
-                  Or enter Cloudinary URL manually:
+            {/* NFT Avatar Selection (Registration Only) */}
+            {!isEditing && (
+              <div style={{ marginBottom: "15px" }}>
+                <div style={{ fontSize: "14px", fontWeight: "bold", color: "#333", marginBottom: "8px" }}>
+                  🎁 Choose Your FREE NFT Avatar:
                 </div>
-                <input
-                  type="text"
-                  value={avatarUrl}
-                  onChange={(e) => {
-                    const url = e.target.value.trim();
-                    setAvatarUrl(url);
-                    setAvatarBlobId("");
-                    setPreviewUrl(url);
-                    setError("");
-                  }}
-                  style={{
-                    width: "100%",
-                    padding: "10px",
-                    borderRadius: "5px",
-                    border: "1px solid #ccc",
-                    boxSizing: "border-box",
-                    fontSize: "12px",
-                  }}
-                  placeholder="https://res.cloudinary.com/..."
-                />
+                <div style={{ fontSize: "12px", color: "#666", marginBottom: "10px" }}>
+                  Pick one of these 3 unique avatars - it will be yours forever!
+                </div>
+                {loadingAvatars ? (
+                  <div style={{ textAlign: "center", padding: "20px", color: "#999" }}>
+                    Loading avatars...
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", gap: "15px", justifyContent: "center", marginBottom: "10px" }}>
+                    {nftAvatarOptions.map((avatar) => (
+                      <div
+                        key={avatar.id}
+                        onClick={() => {
+                          setSelectedNftAvatarId(avatar.id);
+                          setAvatarBlobId(avatarIdToString(avatar.id));
+                          setAvatarUrl("");
+                          setPreviewUrl(avatar.imageUrl);
+                          setError("");
+                        }}
+                        style={{
+                          cursor: "pointer",
+                          textAlign: "center",
+                        }}
+                      >
+                        <img
+                          src={avatar.imageUrl}
+                          alt={`NFT Avatar ${avatar.id}`}
+                          style={{
+                            width: "80px",
+                            height: "80px",
+                            borderRadius: "50%",
+                            border: selectedNftAvatarId === avatar.id ? "4px solid #c96d37" : "3px solid #ddd",
+                            objectFit: "cover",
+                            transition: "all 0.2s",
+                            boxShadow: selectedNftAvatarId === avatar.id ? "0 4px 12px rgba(201, 109, 55, 0.4)" : "none",
+                          }}
+                        />
+                        <div style={{ 
+                          fontSize: "10px", 
+                          color: selectedNftAvatarId === avatar.id ? "#c96d37" : "#999",
+                          fontWeight: selectedNftAvatarId === avatar.id ? "bold" : "normal",
+                          marginTop: "5px"
+                        }}>
+                          #{avatar.id}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
-            {uploadMethod === "walrus" && (
-              <div>
-                <div style={{ fontSize: "12px", color: "#666", marginBottom: "5px" }}>
-                  Or enter Walrus blob ID manually:
-                </div>
-                {(error.includes("Walrus") || error.includes("CLI")) && (
-                  <div style={{ 
-                    fontSize: "11px", 
-                    color: "#c96d37", 
-                    backgroundColor: "#fff3e0", 
-                    padding: "8px", 
-                    borderRadius: "4px", 
-                    marginBottom: "8px",
-                    border: "1px solid #c96d37"
-                  }}>
-                    💡 <strong>Tips:</strong><br/>
-                    1) Select default avatar above (easiest)<br/>
-                    2) Switch to Cloudinary upload<br/>
-                    3) Upload with Walrus CLI: <code style={{fontSize: "10px", backgroundColor: "#fff", padding: "2px 4px", borderRadius: "2px"}}>walrus store image.png</code>
+            {/* For editing: keep upload options */}
+            {isEditing && (
+              <>
+                {/* Upload Method Selection */}
+                <div style={{ marginBottom: "10px" }}>
+                  <div style={{ fontSize: "12px", color: "#666", marginBottom: "5px" }}>
+                    Upload method:
                   </div>
-                )}
-                <input
-                  type="text"
-                  value={avatarBlobId}
-                  onChange={(e) => {
-                    const newBlobId = e.target.value.trim();
-                    setAvatarBlobId(newBlobId);
-                    setAvatarUrl("");
-                    setError("");
-                    if (newBlobId && !newBlobId.startsWith("data:")) {
-                      const url = getWalrusImageUrl(newBlobId);
-                      setPreviewUrl(url);
-                    } else if (newBlobId.startsWith("data:")) {
-                      setPreviewUrl(newBlobId);
-                    } else {
-                      setPreviewUrl("");
+                  <div style={{ display: "flex", gap: "10px" }}>
+                    <button
+                      type="button"
+                      onClick={() => setUploadMethod("cloudinary")}
+                      style={{
+                        flex: 1,
+                        padding: "8px",
+                        backgroundColor: uploadMethod === "cloudinary" ? "#4299e1" : "#f0f0f0",
+                        color: uploadMethod === "cloudinary" ? "white" : "#666",
+                        border: "none",
+                        borderRadius: "5px",
+                        cursor: "pointer",
+                        fontWeight: "bold",
+                        fontSize: "12px",
+                      }}
+                    >
+                      ☁️ Cloudinary
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setUploadMethod("walrus")}
+                      style={{
+                        flex: 1,
+                        padding: "8px",
+                        backgroundColor: uploadMethod === "walrus" ? "#4299e1" : "#f0f0f0",
+                        color: uploadMethod === "walrus" ? "white" : "#666",
+                        border: "none",
+                        borderRadius: "5px",
+                        cursor: "pointer",
+                        fontWeight: "bold",
+                        fontSize: "12px",
+                      }}
+                    >
+                      🐘 Walrus
+                    </button>
+                  </div>
+                </div>
+
+                {/* Upload Button */}
+                <div style={{ marginBottom: "10px" }}>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileUpload}
+                    disabled={uploading}
+                    id="avatar-upload"
+                    style={{ display: "none" }}
+                  />
+                  <label
+                    htmlFor="avatar-upload"
+                    style={{
+                      display: "block",
+                      padding: "10px",
+                      backgroundColor: uploading ? "#ccc" : "#f0f0f0",
+                      border: `2px dashed ${uploadMethod === "cloudinary" ? "#4299e1" : "#c96d37"}`,
+                      borderRadius: "5px",
+                      textAlign: "center",
+                      cursor: uploading ? "not-allowed" : "pointer",
+                      fontWeight: "bold",
+                      color: uploadMethod === "cloudinary" ? "#4299e1" : "#c96d37",
+                    }}
+                  >
+                    {uploading 
+                      ? `Uploading to ${uploadMethod === "cloudinary" ? "Cloudinary" : "Walrus"}...` 
+                      : `📤 Upload to ${uploadMethod === "cloudinary" ? "Cloudinary" : "Walrus"}`
                     }
-                  }}
-                  style={{
-                    width: "100%",
-                    padding: "10px",
-                    borderRadius: "5px",
-                    border: "1px solid #ccc",
-                    boxSizing: "border-box",
-                    fontSize: "12px",
-                  }}
-                  placeholder="Blob ID (or select default avatar above)"
-                />
-              </div>
+                  </label>
+                </div>
+              </>
             )}
           </div>
 

@@ -5,6 +5,7 @@ import { getWalrusImageUrl, fetchProfileFromWalrus } from "./walrusService";
 import { PACKAGE_ID, REGISTRY_ID } from "./constants";
 import { getTheme, type Theme } from "./themes";
 import { trackLinkClick } from "./analyticsService";
+import { FaTree, FaFrown, FaHome } from "react-icons/fa";
 
 export default function PublicProfileNew() {
   const { username } = useParams<{ username: string }>();
@@ -141,7 +142,7 @@ export default function PublicProfileNew() {
         fontFamily: "system-ui, -apple-system, sans-serif"
       }}>
         <div style={{ textAlign: "center", color: "white" }}>
-          <div style={{ fontSize: "48px", marginBottom: "20px" }}>🌳</div>
+          <div style={{ fontSize: "48px", marginBottom: "20px", display: "flex", justifyContent: "center" }}><FaTree /></div>
           <p style={{ fontSize: "18px" }}>Loading @{username}...</p>
         </div>
       </div>
@@ -167,7 +168,7 @@ export default function PublicProfileNew() {
           textAlign: "center",
           boxShadow: "0 20px 60px rgba(0,0,0,0.3)"
         }}>
-          <div style={{ fontSize: "80px", marginBottom: "20px" }}>😕</div>
+          <div style={{ fontSize: "80px", marginBottom: "20px", display: "flex", justifyContent: "center", color: "#8b5cf6" }}><FaFrown /></div>
           <h2 style={{ fontSize: "28px", color: "#1a202c", margin: "0 0 15px" }}>
             {error}
           </h2>
@@ -190,7 +191,7 @@ export default function PublicProfileNew() {
             onMouseEnter={(e) => e.currentTarget.style.backgroundColor = theme.colors.primaryHover}
             onMouseLeave={(e) => e.currentTarget.style.backgroundColor = theme.colors.primary}
           >
-            🏠 Go Home
+            <FaHome style={{ display: "inline", marginRight: "8px" }} /> Go Home
           </button>
         </div>
       </div>
@@ -341,11 +342,9 @@ export default function PublicProfileNew() {
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => {
-                  // Track click asynchronously
+                  // Track click asynchronously (silently fail if not configured)
                   if (profileId) {
-                    trackLinkClick(profileId, link.key).catch(err => 
-                      console.error('Failed to track click:', err)
-                    );
+                    trackLinkClick(profileId, link.key).catch(() => {});
                   }
                 }}
                 style={{

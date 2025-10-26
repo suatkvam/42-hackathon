@@ -4,6 +4,7 @@ module move_backend::linktree {
     // V3 Imports:
     use sui::dynamic_field as df; 
     use sui::transfer::share_object;
+    use sui::vec_map::{Self, VecMap};
 
     // --- Structs (Storage Structure KEPT AS IS) ---
 
@@ -14,18 +15,22 @@ module move_backend::linktree {
         username: String,
         content_blob_id: String,  // Walrus blob ID containing JSON: {name, bio, avatar_blob_id, links}
         theme: String,
-        username_change_count: u64
+        username_change_count: u64,
+        nft_avatar_id: u64  // NFT Avatar ID (1-16), unique per user
     }
 
     // NEW: ProfileRegistry object added
     public struct ProfileRegistry has key, store {
         id: UID
+        // Dynamic field: "assigned_avatars" -> VecMap<u64, address>
+        // Stores avatar_id -> owner_address mapping to ensure uniqueness
     }
 
     // --- Error Codes ---
     const ENotOwner: u64 = 0;
     const EReservedUsername: u64 = 1;
     const EUsernameAlreadyTaken: u64 = 2;
+    const EAvatarAlreadyAssigned: u64 = 3;
 
     // --- Functions (V2) ---
 
@@ -40,19 +45,17 @@ module move_backend::linktree {
     // 2. CREATE PROFILE (DEPRECATED - V1)
     // Kept for backwards compatibility
 
-    // 2b. CREATE PROFILE V3 (Optimized - content in Walrus)
+    // 2b. CREATE PROFILE V2 (DEPRECATED - use create_profile_v3)
+    // Kept for backwards compatibility
     #[allow(lint(self_transfer))]
     public fun create_profile_v2(
         registry: &mut ProfileRegistry,
         username: String,
-        content_blob_id: String,  // Walrus blob ID with profile JSON
+        content_blob_id: String,
         theme: String,
         ctx: &mut TxContext
     ) {
-        // Reserved username check
         assert!(!is_reserved_username(&username), EReservedUsername);
-        
-        // Check if username was already taken
         assert!(!username_exists(registry, username), EUsernameAlreadyTaken);
 
         let profile = LinkTreeProfile {
@@ -61,14 +64,54 @@ module move_backend::linktree {
             username: username,
             content_blob_id: content_blob_id,
             theme: theme,
-            username_change_count: 0
+            username_change_count: 0,
+            nft_avatar_id: 0  // Default for old profiles
         };
 
-        // Add Dynamic Field
         let profile_id = object::uid_to_inner(&profile.id);
         df::add(&mut registry.id, username, profile_id); 
 
         transfer::transfer(profile, tx_context::sender(ctx));
+    }
+
+    // 2c. CREATE PROFILE V3 (With NFT Avatar)
+    #[allow(lint(self_transfer))]
+    public fun create_profile_v3(
+        registry: &mut ProfileRegistry,
+        username: String,
+        content_blob_id: String,
+        theme: String,
+        nft_avatar_id: u64,  // NFT Avatar ID (1-16)
+        ctx: &mut TxContext
+    ) {
+        // Reserved username check
+        assert!(!is_reserved_username(&username), EReservedUsername);
+        
+        // Check if username was already taken
+        assert!(!username_exists(registry, username), EUsernameAlreadyTaken);
+        
+        // Check if avatar is already assigned
+        assert!(!is_avatar_assigned(registry, nft_avatar_id), EAvatarAlreadyAssigned);
+
+        let sender = tx_context::sender(ctx);
+        let profile = LinkTreeProfile {
+            id: object::new(ctx),
+            owner: sender,
+            username: username,
+            content_blob_id: content_blob_id,
+            theme: theme,
+            username_change_count: 0,
+            nft_avatar_id: nft_avatar_id
+        };
+
+        // Add username to registry
+        let profile_id = object::uid_to_inner(&profile.id);
+        df::add(&mut registry.id, username, profile_id);
+        
+        // Assign avatar (mark as taken)
+        assign_avatar(registry, nft_avatar_id, sender);
+
+        transfer::transfer(profile, sender);
     }
 
     // 3. UPDATE PROFILE V3
@@ -89,12 +132,17 @@ module move_backend::linktree {
         profile: LinkTreeProfile,
         ctx: &mut TxContext
     ) {
-        let LinkTreeProfile { id, owner, username, content_blob_id: _, theme: _, username_change_count: _ } = profile;
+        let LinkTreeProfile { id, owner, username, content_blob_id: _, theme: _, username_change_count: _, nft_avatar_id } = profile;
         assert!(owner == tx_context::sender(ctx), ENotOwner);
         
         // Remove username from registry
         if (df::exists_<String>(&registry.id, username)) {
             df::remove<String, ID>(&mut registry.id, username);
+        };
+        
+        // Unassign avatar (free it up)
+        if (nft_avatar_id > 0) {
+            unassign_avatar(registry, nft_avatar_id);
         };
         
         object::delete(id);
@@ -176,6 +224,58 @@ module move_backend::linktree {
         ];
         
         vector::contains(&reserved, username)
+    }
+
+    // --- NFT Avatar Functions ---
+    
+    // Initialize avatar registry (call once after registry creation)
+    public fun init_avatar_registry(registry: &mut ProfileRegistry) {
+        if (!df::exists_<vector<u8>>(&registry.id, b"assigned_avatars")) {
+            df::add(&mut registry.id, b"assigned_avatars", vec_map::empty<u64, address>());
+        };
+    }
+    
+    // Check if avatar is already assigned
+    fun is_avatar_assigned(registry: &ProfileRegistry, avatar_id: u64): bool {
+        if (!df::exists_<vector<u8>>(&registry.id, b"assigned_avatars")) {
+            return false
+        };
+        
+        let avatars = df::borrow<vector<u8>, VecMap<u64, address>>(&registry.id, b"assigned_avatars");
+        vec_map::contains(avatars, &avatar_id)
+    }
+    
+    // Assign avatar to user
+    fun assign_avatar(registry: &mut ProfileRegistry, avatar_id: u64, owner: address) {
+        if (!df::exists_<vector<u8>>(&registry.id, b"assigned_avatars")) {
+            init_avatar_registry(registry);
+        };
+        
+        let avatars = df::borrow_mut<vector<u8>, VecMap<u64, address>>(&mut registry.id, b"assigned_avatars");
+        vec_map::insert(avatars, avatar_id, owner);
+    }
+    
+    // Unassign avatar (free it up)
+    fun unassign_avatar(registry: &mut ProfileRegistry, avatar_id: u64) {
+        if (!df::exists_<vector<u8>>(&registry.id, b"assigned_avatars")) {
+            return
+        };
+        
+        let avatars = df::borrow_mut<vector<u8>, VecMap<u64, address>>(&mut registry.id, b"assigned_avatars");
+        if (vec_map::contains(avatars, &avatar_id)) {
+            vec_map::remove(avatars, &avatar_id);
+        };
+    }
+    
+    // Get all assigned avatar IDs (for frontend to filter available avatars)
+    public fun get_assigned_avatar_ids(registry: &ProfileRegistry): vector<u64> {
+        if (!df::exists_<vector<u8>>(&registry.id, b"assigned_avatars")) {
+            return vector::empty<u64>()
+        };
+        
+        let avatars = df::borrow<vector<u8>, VecMap<u64, address>>(&registry.id, b"assigned_avatars");
+        let keys = vec_map::keys(avatars);
+        *keys
     }
 
 }
